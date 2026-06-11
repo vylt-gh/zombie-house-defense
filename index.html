@@ -218,7 +218,7 @@ const ROOM_EFFECTS = {
   'Pantry':           { desc: 'Food items restore HP' },
   'Treasury':         { desc: '+1 coin per kill' },
   'Dungeon':          { desc: 'More zombies spawn here' },
-  'Armory':           { desc: 'Gun upgraded: dual shot + faster fire' },
+  'Armory':           { desc: 'Gun upgraded: dual shot' },
   'Forge':            { desc: 'Sword unlocked: auto-slash nearby zombies' },
   'Shooting Range':   { desc: 'Fire rate increased' },
   'Workshop':         { desc: 'Bullets do +1 damage' },
@@ -824,7 +824,6 @@ function update(dt) {
       bulletCount * 3, '#ffeb3b', 60, 0.12
     );
     player.fireCD = FR * player.fireRateMult;
-    if (player.gunUpgraded) player.fireCD *= 0.55;
     playSound('shoot');
   }
   if (player.fireCD > 0) player.fireCD -= dt;
