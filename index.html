@@ -113,6 +113,13 @@ canvas{display:block;touch-action:none}
       <span class="toggle-opt" data-value="on">On</span>
     </div>
   </div>
+  <div class="setting-row">
+    <span class="setting-label">Auto-fire</span>
+    <div class="toggle-group" id="toggle-autofire">
+      <span class="toggle-opt active" data-value="off">Off</span>
+      <span class="toggle-opt" data-value="on">On</span>
+    </div>
+  </div>
   <div class="setting-row" id="pos-setting">
     <span class="setting-label">Joystick position</span>
     <div class="toggle-group" id="toggle-pos">
@@ -165,6 +172,7 @@ let settings = {
   joystickStyle: 'stationary',
   casual: false,
   joystickPos: 'low',
+  autofire: false,
 };
 
 const ZOMBIE_TYPES = [
@@ -552,6 +560,7 @@ setupToggle('toggle-door', 'doorUnlock');
 setupToggle('toggle-aim', 'aimMode');
 setupToggle('toggle-js', 'joystickStyle');
 setupToggle('toggle-casual', 'casual');
+setupToggle('toggle-autofire', 'autofire');
 setupToggle('toggle-pos', 'joystickPos');
 if (!(navigator.maxTouchPoints > 0)) {
   document.getElementById('aim-setting').style.display = 'none';
@@ -1079,7 +1088,7 @@ function update(dt) {
   }
   player.gunAngle = Math.atan2(aimWy - player.y, aimWx - player.x);
 
-  if (mouseDown && player.fireCD <= 0) {
+  if ((mouseDown || settings.autofire === 'on') && player.fireCD <= 0) {
     const ARC = Math.PI / 18 + player.aimArcBonus;
     let bestZombie = null;
     let bestDiff = Infinity;
