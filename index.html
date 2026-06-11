@@ -38,7 +38,18 @@ canvas{display:block;touch-action:none}
 #main-menu .github-link:hover{background:#88ddff33}
 #main-menu .play-btn{margin-top:clamp(10px,2.5vh,20px);font-size:clamp(16px,4vw,26px);font-weight:700;pointer-events:auto;cursor:pointer;color:#fff;background:#4CAF50;border:none;padding:clamp(10px,2vh,14px) clamp(30px,8vw,60px);border-radius:12px;transition:.2s;box-shadow:0 4px 20px rgba(76,175,80,.4)}
 #main-menu .play-btn:hover{background:#66bb6a;transform:scale(1.05)}
-@media(hover:none){#game-over .restart:hover{background:transparent}#main-menu .github-link:hover{background:rgba(0,0,0,.3)}#main-menu .play-btn:hover{transform:none}}
+#main-menu .settings-btn{position:absolute;bottom:clamp(16px,3vh,30px);right:clamp(16px,3vw,30px);font-size:clamp(24px,5vw,36px);pointer-events:auto;cursor:pointer;color:rgba(255,255,255,.5);transition:.2s;line-height:1}
+#main-menu .settings-btn:hover{color:#fff;transform:rotate(60deg)}
+#settings-panel{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);border:2px solid rgba(255,255,255,.15);border-radius:16px;padding:clamp(16px,3vh,28px) clamp(20px,4vw,36px);display:none;flex-direction:column;gap:clamp(12px,2vh,20px);pointer-events:auto;min-width:clamp(260px,60vw,420px);z-index:10}
+#settings-panel h2{color:#fff;font-size:clamp(18px,4vw,28px);text-align:center;margin-bottom:clamp(4px,1vh,8px)}
+#settings-panel .setting-row{display:flex;justify-content:space-between;align-items:center;gap:12px}
+#settings-panel .setting-label{color:rgba(255,255,255,.8);font-size:clamp(13px,2.6vw,18px);white-space:nowrap}
+#settings-panel .toggle-group{display:flex;border:1px solid rgba(255,255,255,.2);border-radius:8px;overflow:hidden}
+#settings-panel .toggle-opt{padding:clamp(5px,1vh,8px) clamp(10px,2vw,16px);font-size:clamp(11px,2.2vw,15px);cursor:pointer;color:rgba(255,255,255,.5);background:transparent;transition:.15s;pointer-events:auto;white-space:nowrap}
+#settings-panel .toggle-opt.active{color:#fff;background:rgba(76,175,80,.5)}
+#settings-panel .settings-close{position:absolute;top:clamp(6px,1vh,10px);right:clamp(10px,2vw,16px);font-size:clamp(16px,3vw,22px);cursor:pointer;color:rgba(255,255,255,.5);transition:.15s;pointer-events:auto}
+#settings-panel .settings-close:hover{color:#fff}
+@media(hover:none){#game-over .restart:hover{background:transparent}#main-menu .github-link:hover{background:rgba(0,0,0,.3)}#main-menu .play-btn:hover{transform:none}#main-menu .settings-btn:hover{transform:none;color:rgba(255,255,255,.5)}#settings-panel .toggle-opt:hover{color:rgba(255,255,255,.5)}#settings-panel .settings-close:hover{color:rgba(255,255,255,.5)}}
 </style>
 </head>
 <body>
@@ -68,6 +79,25 @@ canvas{display:block;touch-action:none}
   <div class="sub">Survive the endless horde</div>
   <a class="github-link" href="https://github.com/GameGuyOnYT/ZombieHouseDefense" target="_blank">View on GitHub</a>
   <div class="play-btn">Play</div>
+  <div class="settings-btn">&#x2699;&#xFE0F;</div>
+</div>
+<div id="settings-panel">
+  <h2>Settings</h2>
+  <div class="setting-row">
+    <span class="setting-label">Door unlock</span>
+    <div class="toggle-group" id="toggle-door">
+      <span class="toggle-opt active" data-value="walk">Walk through</span>
+      <span class="toggle-opt" data-value="interact">Interact (E)</span>
+    </div>
+  </div>
+  <div class="setting-row" id="aim-setting">
+    <span class="setting-label">Aim mode</span>
+    <div class="toggle-group" id="toggle-aim">
+      <span class="toggle-opt active" data-value="joystick">Joystick</span>
+      <span class="toggle-opt" data-value="screenwide">Screen-wide</span>
+    </div>
+  </div>
+  <div class="settings-close">&#x2716;</div>
 </div>
 <div id="game-over">
   <h1>GAME OVER</h1>
@@ -104,6 +134,11 @@ const DOOR_W = 72;
 const DOOR_HD = DOOR_W / 2;
 const DOOR_RANGE = 55;
 const COIN_ATTRACT_RANGE = 170;
+
+let settings = {
+  doorUnlock: 'walk',
+  aimMode: 'joystick',
+};
 
 const ZOMBIE_TYPES = [
   { r: ZR, speedM: 1,    hpM: 1,   color: '#5cb85c', dark: '#3d8b3d', eye: '#ff3333', weight: 0.6 },
@@ -446,8 +481,8 @@ let debugGod = false;
 document.addEventListener('keydown', e => {
   KEYS[e.key] = true;
   if (menuActive) { startGame(); return; }
-  if ((e.key === 'e' || e.key === 'E') && !gameOver) { if (!tryPurchaseUpgrade()) tryEatFood(); }
-  if (e.key === ' ' && !gameOver) { e.preventDefault(); if (!tryPurchaseUpgrade()) tryEatFood(); }
+  if ((e.key === 'e' || e.key === 'E') && !gameOver) { if (!tryUnlock() && !tryPurchaseUpgrade()) tryEatFood(); }
+  if (e.key === ' ' && !gameOver) { e.preventDefault(); if (!tryUnlock() && !tryPurchaseUpgrade()) tryEatFood(); }
   if (e.key === 'r' || e.key === 'R') restartGame();
   if (e.key === '"') { debugMode = !debugMode; showDebugOverlay(); }
   if (debugMode) {
@@ -464,6 +499,32 @@ document.addEventListener('keyup', e => { KEYS[e.key] = false; });
 
 document.querySelector('#main-menu .play-btn').addEventListener('click', startGame);
 document.querySelector('#main-menu .play-btn').addEventListener('touchend', e => { e.preventDefault(); startGame(); });
+
+// Settings panel
+const settingsPanel = document.getElementById('settings-panel');
+document.querySelector('.settings-btn').addEventListener('click', () => settingsPanel.style.display = 'flex');
+document.querySelector('.settings-btn').addEventListener('touchend', e => { e.preventDefault(); settingsPanel.style.display = 'flex'; });
+document.querySelector('.settings-close').addEventListener('click', () => settingsPanel.style.display = 'none');
+document.querySelector('.settings-close').addEventListener('touchend', e => { e.preventDefault(); settingsPanel.style.display = 'none'; });
+function setupToggle(id, settingKey) {
+  document.querySelectorAll(`#${id} .toggle-opt`).forEach(el => {
+    el.addEventListener('click', () => {
+      document.querySelectorAll(`#${id} .toggle-opt`).forEach(o => o.classList.remove('active'));
+      el.classList.add('active');
+      settings[settingKey] = el.dataset.value;
+    });
+    el.addEventListener('touchend', e => {
+      e.preventDefault();
+      document.querySelectorAll(`#${id} .toggle-opt`).forEach(o => o.classList.remove('active'));
+      el.classList.add('active');
+      settings[settingKey] = el.dataset.value;
+    });
+  });
+}
+setupToggle('toggle-door', 'doorUnlock');
+setupToggle('toggle-aim', 'aimMode');
+// Hide aim mode setting on non-touch devices
+if (!('ontouchstart' in window)) document.getElementById('aim-setting').style.display = 'none';
 canvas.addEventListener('mousedown', e => { mouseDown = true; });
 canvas.addEventListener('mouseup', e => { mouseDown = false; });
 canvas.addEventListener('mouseleave', e => { mouseDown = false; });
@@ -472,25 +533,47 @@ canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clien
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
   for (const t of e.changedTouches) {
-    const half = W / 2;
     const ibt = H - 90;
-    if (t.clientX < half && t.clientY < ibt && touch.leftId < 0) {
-      touch.leftId = t.identifier;
-      touch.ax = t.clientX;
-      touch.ay = t.clientY;
-      touch.moveX = 0;
-      touch.moveY = 0;
-      touch.active = true;
-    } else if (t.clientX >= half && t.clientY < ibt && touch.rightId < 0) {
-      touch.rightId = t.identifier;
-      touch.rx = t.clientX;
-      touch.ry = t.clientY;
-      mouseX = t.clientX;
-      mouseY = t.clientY;
-      mouseDown = true;
-    } else if (t.clientY >= ibt && touch.interactId < 0) {
-      touch.interactId = t.identifier;
-      if (!tryPurchaseUpgrade()) tryEatFood();
+    const inJoystick = t.clientY >= ibt - 50 && t.clientX < 140;
+    if (settings.aimMode === 'screenwide') {
+      if (inJoystick && touch.leftId < 0) {
+        touch.leftId = t.identifier;
+        touch.ax = t.clientX;
+        touch.ay = t.clientY;
+        touch.moveX = 0;
+        touch.moveY = 0;
+        touch.active = true;
+      } else if (t.clientY < ibt && touch.rightId < 0) {
+        touch.rightId = t.identifier;
+        touch.rx = t.clientX;
+        touch.ry = t.clientY;
+        mouseX = t.clientX;
+        mouseY = t.clientY;
+        mouseDown = true;
+      } else if (t.clientY >= ibt && touch.interactId < 0 && !inJoystick) {
+        touch.interactId = t.identifier;
+        if (!tryUnlock() && !tryPurchaseUpgrade()) tryEatFood();
+      }
+    } else {
+      const half = W / 2;
+      if (t.clientX < half && t.clientY < ibt && touch.leftId < 0) {
+        touch.leftId = t.identifier;
+        touch.ax = t.clientX;
+        touch.ay = t.clientY;
+        touch.moveX = 0;
+        touch.moveY = 0;
+        touch.active = true;
+      } else if (t.clientX >= half && t.clientY < ibt && touch.rightId < 0) {
+        touch.rightId = t.identifier;
+        touch.rx = t.clientX;
+        touch.ry = t.clientY;
+        mouseX = t.clientX;
+        mouseY = t.clientY;
+        mouseDown = true;
+      } else if (t.clientY >= ibt && touch.interactId < 0) {
+        touch.interactId = t.identifier;
+        if (!tryUnlock() && !tryPurchaseUpgrade()) tryEatFood();
+      }
     }
   }
 }, {passive:false});
@@ -1133,10 +1216,18 @@ function update(dt) {
   if (unlockDoorInfo) {
     const room = unlockDoorInfo.room;
     if (player.coins >= room.cost) {
-      tryUnlock();
+      if (settings.doorUnlock === 'walk') {
+        tryUnlock();
+      } else {
+        document.getElementById('unlock-cost').textContent = room.cost;
+        document.getElementById('unlock-name').textContent = room.name;
+        prompt.innerHTML = 'Press <span style="font-weight:700">E</span> to unlock <b>' + room.name + '</b> \u2014 <span class="cost" style="color:#ffd700">' + room.cost + '\u00A2</span>';
+        prompt.style.display = 'block';
+        prompt.style.borderColor = '#4FC3F7';
+        prompt.style.color = '#4FC3F7';
+      }
     } else {
-      document.getElementById('unlock-cost').textContent = room.cost;
-      document.getElementById('unlock-name').textContent = room.name;
+      prompt.innerHTML = 'Need <span class="cost" style="font-weight:700">' + room.cost + '</span> coins to unlock <b>' + room.name + '</b>';
       prompt.style.display = 'block';
       prompt.style.borderColor = '#ff4444';
       prompt.style.color = '#ff4444';
@@ -1619,15 +1710,20 @@ function render() {
   }
 
   // Virtual joystick
-  if (touch.active) {
-    const jx = touch.ax, jy = touch.ay;
-    const jd = Math.hypot(touch.moveX, touch.moveY);
+  if (touch.active || (settings.aimMode === 'screenwide' && !menuActive)) {
+    let jx, jy, active;
+    if (settings.aimMode === 'screenwide') {
+      jx = 80; jy = H - 90; active = touch.active;
+    } else {
+      jx = touch.ax; jy = touch.ay; active = true;
+    }
+    const jd = active ? Math.hypot(touch.moveX, touch.moveY) : 0;
     const jr = 50;
     const stickX = jx + Math.min(jd, jr) * (jd > 0 ? touch.moveX / jd : 0);
     const stickY = jy + Math.min(jd, jr) * (jd > 0 ? touch.moveY / jd : 0);
     ctx.fillStyle = 'rgba(255,255,255,0.2)';
     ctx.beginPath(); ctx.arc(jx, jy, jr, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillStyle = active ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.25)';
     ctx.beginPath(); ctx.arc(stickX, stickY, 16, 0, Math.PI * 2); ctx.fill();
   }
   // Interact button
