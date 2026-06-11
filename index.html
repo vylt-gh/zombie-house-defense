@@ -83,7 +83,6 @@ let W, H;
 function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
-  if (!rooms) isVertical = H > W;
 }
 resize();
 window.addEventListener('resize', resize);
