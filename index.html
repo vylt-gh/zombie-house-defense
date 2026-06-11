@@ -25,12 +25,14 @@ canvas{display:block;touch-action:none}
 #unlock-prompt .cost{font-weight:700;font-size:clamp(13px,2.6vw,22px)}
 #upgrade-prompt{position:absolute;bottom:clamp(110px,18vh,140px);left:50%;transform:translateX(-50%);color:#4FC3F7;font-size:clamp(12px,2.4vw,20px);background:rgba(0,0,0,.75);padding:clamp(8px,1.2vh,12px) clamp(14px,3vw,28px);border-radius:8px;border:2px solid #4FC3F7;display:none;text-align:center;text-shadow:0 1px 4px rgba(0,0,0,.5)}
 #food-prompt{position:absolute;bottom:clamp(160px,26vh,200px);left:50%;transform:translateX(-50%);color:#a5d6a7;font-size:clamp(12px,2.4vw,20px);background:rgba(0,0,0,.75);padding:clamp(8px,1.2vh,12px) clamp(14px,3vw,28px);border-radius:8px;border:2px solid #a5d6a7;display:none;text-align:center;text-shadow:0 1px 4px rgba(0,0,0,.5)}
-#game-over{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);display:none;justify-content:center;align-items:center;flex-direction:column;pointer-events:auto;cursor:pointer}
+#game-over{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);display:none;justify-content:center;align-items:center;flex-direction:column;pointer-events:auto}
 #game-over h1{color:#ff4444;font-size:clamp(28px,7vw,64px);margin-bottom:clamp(4px,1vh,10px)}
 #game-over .stat{color:#fff;font-size:clamp(13px,2.6vw,22px);margin:clamp(2px,0.5vh,4px) 0}
 #game-over .stat span{color:#ffd700;font-weight:700}
-#game-over .restart{color:#88ddff;font-size:clamp(12px,2.2vw,18px);margin-top:clamp(10px,2.5vh,20px);border:2px solid #88ddff;padding:clamp(6px,1.2vh,10px) clamp(14px,4vw,30px);border-radius:8px;transition:.2s}
-#game-over .restart:hover{background:#88ddff22}
+#game-over .restart,#game-over .main-menu-btn{color:#88ddff;font-size:clamp(12px,2.2vw,18px);border:2px solid #88ddff;padding:clamp(6px,1.2vh,10px) clamp(14px,4vw,30px);border-radius:8px;transition:.2s;cursor:pointer}
+#game-over .restart{margin-top:clamp(10px,2.5vh,20px)}
+#game-over .main-menu-btn{margin-top:clamp(4px,1vh,8px)}
+#game-over .restart:hover,#game-over .main-menu-btn:hover{background:#88ddff22}
 #main-menu{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;justify-content:center;align-items:center;flex-direction:column;pointer-events:auto;padding:20px}
 #main-menu h1{color:#fff;font-size:clamp(28px,8vw,72px);font-weight:800;text-shadow:0 4px 20px rgba(0,0,0,.7),0 0 60px rgba(0,0,0,.4);margin-bottom:8px;text-align:center}
 #main-menu .sub{color:rgba(255,255,255,.7);font-size:clamp(13px,3vw,22px);margin-top:8px;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.6)}
@@ -49,7 +51,7 @@ canvas{display:block;touch-action:none}
 #settings-panel .toggle-opt.active{color:#fff;background:rgba(76,175,80,.5)}
 #settings-panel .settings-close{position:absolute;top:clamp(6px,1vh,10px);right:clamp(10px,2vw,16px);font-size:clamp(16px,3vw,22px);cursor:pointer;color:rgba(255,255,255,.5);transition:.15s;pointer-events:auto}
 #settings-panel .settings-close:hover{color:#fff}
-@media(hover:none){#game-over .restart:hover{background:transparent}#main-menu .github-link:hover{background:rgba(0,0,0,.3)}#main-menu .play-btn:hover{transform:none}#main-menu .settings-btn:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25)}#settings-panel .toggle-opt:hover{color:rgba(255,255,255,.5)}#settings-panel .settings-close:hover{color:rgba(255,255,255,.5)}}
+@media(hover:none){#game-over .restart:hover,#game-over .main-menu-btn:hover{background:transparent}#main-menu .github-link:hover{background:rgba(0,0,0,.3)}#main-menu .play-btn:hover{transform:none}#main-menu .settings-btn:hover{background:rgba(255,255,255,.12);border-color:rgba(255,255,255,.25)}#settings-panel .toggle-opt:hover{color:rgba(255,255,255,.5)}#settings-panel .settings-close:hover{color:rgba(255,255,255,.5)}}
 </style>
 </head>
 <body>
@@ -125,7 +127,8 @@ canvas{display:block;touch-action:none}
   <div class="stat">Zombies Killed: <span id="final-kills">0</span></div>
   <div class="stat">Coins Earned: <span id="final-coins">0</span></div>
   <div class="stat">Rooms Explored: <span id="final-rooms">0</span></div>
-  <div class="restart">Click or press R to restart</div>
+  <div class="restart">Restart</div>
+  <div class="main-menu-btn">Main menu</div>
 </div>
 <script>
 // ==================== SETUP ====================
@@ -1842,7 +1845,8 @@ function showGameOver() {
   document.getElementById('final-rooms').textContent = count;
 }
 
-document.getElementById('game-over').addEventListener('click', restartGame);
+document.querySelector('#game-over .restart').addEventListener('click', restartGame);
+document.querySelector('#game-over .main-menu-btn').addEventListener('click', showMainMenu);
 
 function startGame() {
   document.getElementById('main-menu').style.display = 'none';
@@ -1853,6 +1857,12 @@ function startGame() {
 function restartGame() {
   menuActive = false;
   initGame();
+}
+
+function showMainMenu() {
+  document.getElementById('game-over').style.display = 'none';
+  document.getElementById('main-menu').style.display = 'flex';
+  menuActive = true;
 }
 
 // ==================== GAME LOOP ====================
