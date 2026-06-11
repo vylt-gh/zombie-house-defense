@@ -1331,9 +1331,12 @@ function render() {
     const next = rooms[i + 1];
     if (rooms[i].unlocked && !next.unlocked) {
       const canAfford = player.coins >= next.cost;
+      let cx, cy;
       if (isVertical) {
         const wy = rooms[i].y + rooms[i].h;
         const midX = (rooms[i].x + rooms[i].w / 2 + rooms[i + 1].x + rooms[i + 1].w / 2) / 2;
+        cx = midX;
+        cy = wy;
         ctx.fillStyle = canAfford ? 'rgba(30, 180, 30, 0.55)' : 'rgba(180, 30, 30, 0.55)';
         ctx.fillRect(midX - DOOR_HD, wy - 6, DOOR_W, 12);
         ctx.strokeStyle = canAfford ? '#22cc22' : '#cc2222';
@@ -1347,6 +1350,8 @@ function render() {
       } else {
         const wx = rooms[i].x + rooms[i].w;
         const midY = (rooms[i].y + rooms[i].h / 2 + rooms[i + 1].y + rooms[i + 1].h / 2) / 2;
+        cx = wx;
+        cy = midY;
         ctx.fillStyle = canAfford ? 'rgba(30, 180, 30, 0.55)' : 'rgba(180, 30, 30, 0.55)';
         ctx.fillRect(wx - 6, midY - DOOR_HD, 12, DOOR_W);
         ctx.strokeStyle = canAfford ? '#22cc22' : '#cc2222';
@@ -1362,7 +1367,7 @@ function render() {
       ctx.font = 'bold 16px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(next.cost + '\u00A2', wx, midY);
+      ctx.fillText(next.cost + '\u00A2', cx, cy);
     }
   }
 
