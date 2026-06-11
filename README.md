@@ -73,7 +73,7 @@ Upgrades stack. Fire rate is multiplicative (base 0.35s). Shooting Range reduces
 | Aim mode | Joystick / Screen-wide | Mobile only |
 | Joystick style | Stationary / Dynamic | Stationary = fixed bottom corners; Dynamic = appears at touch |
 | Joystick position | Low / High | Mobile only. Low = default; High = moves joysticks + interact button ~250px up |
-| Casual mode | Off / On | Zombies 25% slower, difficulty progression 25% slower |
+| Casual mode | Off / On | Zombies 25% slower, difficulty 25% slower, fire rate 0.25s |
 | Auto-fire | Off / On | Gun fires continuously without holding any button |
 
 ## Tech

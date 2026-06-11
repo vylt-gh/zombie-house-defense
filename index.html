@@ -695,7 +695,7 @@ function initGame() {
     r: PR, health: 100, maxHealth: 100, coins: 0,
     fireCD: 0, gunAngle: 0, damageCD: 0, hurtFlash: 0,
     gunUpgraded: false, hasSword: false, swordCD: 0, swordSwing: 0,
-    fireRateMult: 1, bonusDamage: 0, bulletPierce: false, knockback: false,
+    fireRateMult: settings.casual === 'on' ? 0.25 / 0.35 : 1, bonusDamage: 0, bulletPierce: false, knockback: false,
     treasuryChance: 0, libraryBonus: 1, dungeonActive: false,
     regenTimer: 0,     aimArcBonus: 0,
     lastRoomIdx: -1,
