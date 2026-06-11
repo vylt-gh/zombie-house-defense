@@ -550,7 +550,7 @@ setupToggle('toggle-aim', 'aimMode');
 setupToggle('toggle-js', 'joystickStyle');
 setupToggle('toggle-casual', 'casual');
 setupToggle('toggle-pos', 'joystickPos');
-if (!('ontouchstart' in window)) {
+if (!(navigator.maxTouchPoints > 0)) {
   document.getElementById('aim-setting').style.display = 'none';
   document.getElementById('joystick-style-setting').style.display = 'none';
   document.getElementById('pos-setting').style.display = 'none';
@@ -1770,7 +1770,7 @@ function render() {
   }
 
   // Virtual joysticks
-  if ('ontouchstart' in window) {
+  if (navigator.maxTouchPoints > 0) {
   const renderStick = (cx, cy, dx, dy, active) => {
     const jd = Math.hypot(dx, dy);
     const jr = 50;
