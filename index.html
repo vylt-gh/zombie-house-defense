@@ -273,7 +273,7 @@ function generateRooms(startIndex, count, startPos) {
     if (r.upgrade) { r.upgrade.px = r.x + r.w / 2; r.upgrade.py = r.y + r.h / 2; }
     // Per-room foliage
     const fol = [];
-    // Trees in grass above and below
+    if (!isVertical) {
     for (let i = 0; i < 4; i++) {
       const side = Math.random() < 0.5 ? -1 : 1;
       fol.push({
@@ -282,7 +282,6 @@ function generateRooms(startIndex, count, startPos) {
         type: 'tree', r: rand(14, 24),
       });
     }
-    // Bushes in grass above and below
     for (let i = 0; i < 6; i++) {
       const side = Math.random() < 0.5 ? -1 : 1;
       fol.push({
@@ -291,7 +290,6 @@ function generateRooms(startIndex, count, startPos) {
         type: 'bush', r: rand(5, 12),
       });
     }
-    // Flowers in grass
     for (let i = 0; i < 6; i++) {
       const side = Math.random() < 0.5 ? -1 : 1;
       fol.push({
@@ -300,6 +298,7 @@ function generateRooms(startIndex, count, startPos) {
         type: 'flower', r: rand(3, 6),
         color: ['#e91e63','#ff9800','#9c27b0','#f44336','#ffeb3b'][randInt(0, 4)],
       });
+    }
     }
     r.foliage = fol;
     // Food items
@@ -338,8 +337,13 @@ function ensureRooms() {
 function generateWalls(rooms) {
   const walls = [];
   for (const r of rooms) {
-    walls.push({ x1: r.x, y1: r.y, x2: r.x + r.w, y2: r.y });
-    walls.push({ x1: r.x, y1: r.y + r.h, x2: r.x + r.w, y2: r.y + r.h });
+    if (isVertical) {
+      walls.push({ x1: r.x, y1: r.y, x2: r.x, y2: r.y + r.h });
+      walls.push({ x1: r.x + r.w, y1: r.y, x2: r.x + r.w, y2: r.y + r.h });
+    } else {
+      walls.push({ x1: r.x, y1: r.y, x2: r.x + r.w, y2: r.y });
+      walls.push({ x1: r.x, y1: r.y + r.h, x2: r.x + r.w, y2: r.y + r.h });
+    }
   }
   const f = rooms[0];
   if (isVertical) {
@@ -504,8 +508,9 @@ function initGame() {
   document.getElementById('banner').classList.remove('show');
   document.getElementById('unlock-prompt').style.display = 'none';
   document.getElementById('game-over').style.display = 'none';
-  // Start-area foliage (left of entrance for H, above for V)
+  // Start-area foliage
   startFoliage = [];
+  if (!isVertical) {
   const minY = Math.min(...rooms.map(r => r.y));
   const maxBot = Math.max(...rooms.map(r => r.y + r.h));
   const minX = Math.min(...rooms.map(r => r.x));
@@ -513,12 +518,13 @@ function initGame() {
   for (let i = 0; i < 12; i++) {
     const t = Math.random();
     startFoliage.push({
-      x: isVertical ? rand(minX - 40, maxRight + 40) : rand(rooms[0].x - 280, rooms[0].x - 20),
-      y: isVertical ? rand(rooms[0].y - 280, rooms[0].y - 20) : rand(minY - 40, maxBot + 40),
+      x: rand(rooms[0].x - 280, rooms[0].x - 20),
+      y: rand(minY - 40, maxBot + 40),
       type: t < 0.25 ? 'tree' : t < 0.5 ? 'bush' : 'flower',
       r: t < 0.25 ? rand(14, 24) : rand(3, 10),
       color: t >= 0.5 ? ['#e91e63','#ff9800','#9c27b0','#f44336','#ffeb3b'][randInt(0, 4)] : undefined,
     });
+  }
   }
 }
 
@@ -1182,6 +1188,7 @@ function render() {
   }
 
   // Foliage (per-room + start area)
+  if (!isVertical) {
   const allFol = [...startFoliage];
   for (const r of rooms) allFol.push(...r.foliage);
   for (const f of allFol) {
@@ -1207,6 +1214,7 @@ function render() {
       ctx.fillStyle = '#ffeb3b';
       ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 0.4, 0, Math.PI * 2); ctx.fill();
     }
+  }
   }
 
   // Upgrade pedestals
