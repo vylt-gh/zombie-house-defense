@@ -1770,6 +1770,7 @@ function render() {
   }
 
   // Virtual joysticks
+  if ('ontouchstart' in window) {
   const renderStick = (cx, cy, dx, dy, active) => {
     const jd = Math.hypot(dx, dy);
     const jr = 50;
@@ -1803,6 +1804,7 @@ function render() {
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('E', W / 2, ibt);
+  }
 }
 
 // ==================== HUD ====================
