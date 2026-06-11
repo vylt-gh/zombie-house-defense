@@ -1749,10 +1749,10 @@ function render() {
   };
   const ibt = H - 90;
   if (settings.aimMode === 'joystick') {
-    renderStick(80, ibt, touch.moveX, touch.moveY, touch.active);
-    renderStick(W - 80, ibt, touch.rmoveX, touch.rmoveY, touch.ractive);
-  } else if (!menuActive) {
-    renderStick(80, ibt, touch.moveX, touch.moveY, touch.active);
+    if (touch.active) renderStick(touch.ax, touch.ay, touch.moveX, touch.moveY, true);
+    if (touch.ractive) renderStick(touch.rax, touch.ray, touch.rmoveX, touch.rmoveY, true);
+  } else if (touch.active) {
+    renderStick(touch.ax, touch.ay, touch.moveX, touch.moveY, true);
   }
   // Interact button
   ctx.fillStyle = 'rgba(255,255,255,0.25)';
