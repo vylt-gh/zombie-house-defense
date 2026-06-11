@@ -59,6 +59,7 @@ Play: https://gameguyonyt.github.io/ZombieHouseDefense
 | Enchanting Table | Bullets pierce zombies |
 | Gate Room | Bullets knock zombies back |
 | Observatory | +5° aim assist arc |
+| Throne Room | Boss fight! Kill the king zombie for a 30s laser weapon |
 | Dungeon | Extra zombies spawn while inside |
 
 ## Upgrades
