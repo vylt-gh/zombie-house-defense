@@ -2,19 +2,23 @@
 
 Top-down zombie survival game with procedurally generated rooms, permanent upgrades, and a roguelike loop.
 
-## Play
-
-Open `game.html` in a browser. No server needed.
+Play: https://gameguyonyt.github.io/ZombieHouseDefense
 
 ## Controls
 
-| Key | Action |
-|-----|--------|
+| Input | Action |
+|-------|--------|
 | WASD / Arrows | Move |
-| Hold left click | Aim & fire |
-| E | Interact (unlock doors, buy upgrades, eat food) |
+| Hold left click / right half of screen | Aim & fire |
+| E / Space / tap bottom-center of screen | Interact (unlock doors, buy upgrades, eat food) |
 | R | Restart after death |
 | " | Toggle debug panel |
+
+### Mobile
+
+- **Twin-stick mode (default)**: Left side → joystick moves, Right side → joystick aims. Stationary joysticks stay fixed at bottom corners; dynamic ones appear at your touch position.
+- **Screen-wide mode**: Left quarter → movement joystick, anywhere else → aim at your finger.
+- Interact button at bottom-center of screen.
 
 ### Debug cheats (after pressing ")
 
@@ -31,16 +35,19 @@ Open `game.html` in a browser. No server needed.
 ## Gameplay
 
 - Fight through infinite linear rooms. Each room costs coins to unlock.
+- Rooms generate horizontally in landscape, vertically in portrait.
 - Zombies get harder over time (speed, damage, spawn rate).
 - Three zombie types: regular (60%), fast (20%), big (20%).
 - Kill zombies for coins. Coins auto-attract within range.
 - Life steal: each bullet hit heals 0.5 HP.
+- 10° aim lock-on arc snaps bullets to nearest zombie.
+- Wall sliding via separated X/Y collision.
 
 ## Room Effects
 
 | Room | Effect |
 |------|--------|
-| Armory | Buy dual-shot + fire rate upgrade (100 coins) |
+| Armory | Buy dual-shot upgrade (100 coins) |
 | Forge | Buy sword — auto-slash melee (50 coins) |
 | Workshop | Buy +1 bullet damage (100 coins) |
 | Treasury | +1 coin per kill (guaranteed) |
@@ -56,8 +63,18 @@ Open `game.html` in a browser. No server needed.
 
 ## Upgrades
 
-Upgrades stack. Fire rate is multiplicative (base 0.35s). Armory and Shooting Range both reduce it.
+Upgrades stack. Fire rate is multiplicative (base 0.35s). Shooting Range reduces it.
+
+## Settings (gear icon on main menu)
+
+| Setting | Options | Notes |
+|---------|---------|-------|
+| Door unlock | Walk through / Interact | Walk through = auto-unlock on contact |
+| Aim mode | Joystick / Screen-wide | Mobile only |
+| Joystick style | Stationary / Dynamic | Stationary = fixed bottom corners; Dynamic = appears at touch |
+| Joystick position | Low / High | Mobile only. Low = default; High = moves joysticks + interact button ~250px up |
+| Casual mode | Off / On | Zombies 25% slower, difficulty progression 25% slower |
 
 ## Tech
 
-Single HTML file (~1500 lines). Canvas 2D rendering. Web Audio API for sound effects. No dependencies.
+Single HTML file (~1900 lines). Canvas 2D rendering. Web Audio API for sound effects. No dependencies.
