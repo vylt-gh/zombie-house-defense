@@ -70,6 +70,7 @@ Upgrades stack. Fire rate is multiplicative (base 0.35s). Shooting Range reduces
 | Setting | Options | Notes |
 |---------|---------|-------|
 | Door unlock | Walk through / Interact | Walk through = auto-unlock on contact |
+| Interact mode | Interact (E) / Auto pickup | Upgrades and food: auto-collect on contact or press E |
 | Aim mode | Joystick / Screen-wide | Mobile only |
 | Joystick style | Stationary / Dynamic | Stationary = fixed bottom corners; Dynamic = appears at touch |
 | Joystick position | Low / High | Mobile only. Low = default; High = moves joysticks + interact button ~250px up |

@@ -92,6 +92,13 @@ canvas{display:block;touch-action:none}
       <span class="toggle-opt" data-value="interact">Interact (E)</span>
     </div>
   </div>
+  <div class="setting-row">
+    <span class="setting-label">Interact mode</span>
+    <div class="toggle-group" id="toggle-interact">
+      <span class="toggle-opt active" data-value="interact">Interact (E)</span>
+      <span class="toggle-opt" data-value="walk">Auto pickup</span>
+    </div>
+  </div>
   <div class="setting-row" id="aim-setting">
     <span class="setting-label">Aim mode</span>
     <div class="toggle-group" id="toggle-aim">
@@ -168,6 +175,7 @@ const COIN_ATTRACT_RANGE = 170;
 
 let settings = {
   doorUnlock: 'walk',
+  interactMode: 'interact',
   aimMode: 'joystick',
   joystickStyle: 'stationary',
   casual: false,
@@ -557,6 +565,7 @@ function setupToggle(id, settingKey) {
   });
 }
 setupToggle('toggle-door', 'doorUnlock');
+setupToggle('toggle-interact', 'interactMode');
 setupToggle('toggle-aim', 'aimMode');
 setupToggle('toggle-js', 'joystickStyle');
 setupToggle('toggle-casual', 'casual');
@@ -1315,12 +1324,16 @@ function update(dt) {
     const d = dist(player, { x: currentRoom.upgrade.px, y: currentRoom.upgrade.py });
     if (d < 60) {
       upgradeInfo = currentRoom.upgrade;
-      const canAfford = player.coins >= upgradeInfo.cost;
-      document.getElementById('upgrade-name').textContent = upgradeInfo.type;
-      document.getElementById('upgrade-cost').textContent = upgradeInfo.cost;
-      uprompt.style.display = 'block';
-      uprompt.style.borderColor = canAfford ? '#ffd700' : '#ff4444';
-      uprompt.style.color = canAfford ? '#ffd700' : '#ff4444';
+      if (settings.interactMode === 'walk' && player.coins >= upgradeInfo.cost) {
+        tryPurchaseUpgrade();
+      } else {
+        const canAfford = player.coins >= upgradeInfo.cost;
+        document.getElementById('upgrade-name').textContent = upgradeInfo.type;
+        document.getElementById('upgrade-cost').textContent = upgradeInfo.cost;
+        uprompt.style.display = 'block';
+        uprompt.style.borderColor = canAfford ? '#ffd700' : '#ff4444';
+        uprompt.style.color = canAfford ? '#ffd700' : '#ff4444';
+      }
     } else {
       uprompt.style.display = 'none';
     }
@@ -1336,6 +1349,7 @@ function update(dt) {
       if (item.consumed) continue;
       if (dist(player, item) < 45) {
         foodInfo = item;
+        if (settings.interactMode === 'walk') { tryEatFood(); foodInfo = null; }
         break;
       }
     }
