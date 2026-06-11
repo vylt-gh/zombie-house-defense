@@ -97,6 +97,13 @@ canvas{display:block;touch-action:none}
       <span class="toggle-opt" data-value="screenwide">Screen-wide</span>
     </div>
   </div>
+  <div class="setting-row" id="joystick-style-setting">
+    <span class="setting-label">Joystick style</span>
+    <div class="toggle-group" id="toggle-js">
+      <span class="toggle-opt active" data-value="stationary">Stationary</span>
+      <span class="toggle-opt" data-value="dynamic">Dynamic</span>
+    </div>
+  </div>
   <div class="settings-close">&#x2716;</div>
 </div>
 <div id="game-over">
@@ -138,6 +145,7 @@ const COIN_ATTRACT_RANGE = 170;
 let settings = {
   doorUnlock: 'walk',
   aimMode: 'joystick',
+  joystickStyle: 'stationary',
 };
 
 const ZOMBIE_TYPES = [
@@ -523,8 +531,11 @@ function setupToggle(id, settingKey) {
 }
 setupToggle('toggle-door', 'doorUnlock');
 setupToggle('toggle-aim', 'aimMode');
-// Hide aim mode setting on non-touch devices
-if (!('ontouchstart' in window)) document.getElementById('aim-setting').style.display = 'none';
+setupToggle('toggle-js', 'joystickStyle');
+if (!('ontouchstart' in window)) {
+  document.getElementById('aim-setting').style.display = 'none';
+  document.getElementById('joystick-style-setting').style.display = 'none';
+}
 canvas.addEventListener('mousedown', e => { mouseDown = true; });
 canvas.addEventListener('mouseup', e => { mouseDown = false; });
 canvas.addEventListener('mouseleave', e => { mouseDown = false; });
@@ -1748,9 +1759,17 @@ function render() {
     ctx.beginPath(); ctx.arc(sx, sy, 16, 0, Math.PI * 2); ctx.fill();
   };
   const ibt = H - 90;
+  const stat = settings.joystickStyle === 'stationary';
   if (settings.aimMode === 'joystick') {
-    if (touch.active) renderStick(touch.ax, touch.ay, touch.moveX, touch.moveY, true);
-    if (touch.ractive) renderStick(touch.rax, touch.ray, touch.rmoveX, touch.rmoveY, true);
+    if (stat) {
+      renderStick(80, ibt, touch.moveX, touch.moveY, touch.active);
+      renderStick(W - 80, ibt, touch.rmoveX, touch.rmoveY, touch.ractive);
+    } else {
+      if (touch.active) renderStick(touch.ax, touch.ay, touch.moveX, touch.moveY, true);
+      if (touch.ractive) renderStick(touch.rax, touch.ray, touch.rmoveX, touch.rmoveY, true);
+    }
+  } else if (stat) {
+    renderStick(80, ibt, touch.moveX, touch.moveY, touch.active);
   } else if (touch.active) {
     renderStick(touch.ax, touch.ay, touch.moveX, touch.moveY, true);
   }
