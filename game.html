@@ -1,0 +1,1478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Zombie House Defense</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#87CEEB;overflow:hidden;font-family:'Segoe UI',Arial,sans-serif;user-select:none}
+canvas{display:block}
+#ui{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+#hud{position:absolute;top:0;left:0;width:100%;display:flex;justify-content:center;align-items:center;gap:12px;height:160px;padding:0 20px;pointer-events:none}
+#hud .stat{display:flex;align-items:center;gap:10px;padding:12px 28px;border-radius:14px;font-size:32px;font-weight:700;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.8);background:rgba(0,0,0,.35)}
+#hud .stat .icon{font-size:34px;line-height:1}
+#hud .stat .val{min-width:50px;text-align:center}
+#hud .hp .val{color:#ff6b6b}
+#hud .coin .val{color:#ffd700}
+#hud .kill .val{color:#ff9944}
+#hud .room .val{color:#88ddff;font-size:24px}
+#hud .weapon .val{font-size:36px;min-width:auto}
+#banner{position:absolute;top:180px;left:50%;transform:translateX(-50%);color:#fff;font-size:28px;font-weight:700;text-align:center;text-shadow:0 2px 12px rgba(0,0,0,.9);background:rgba(0,0,0,.7);padding:14px 40px;border-radius:14px;border:2px solid rgba(255,255,255,.15);opacity:0;transition:opacity .3s;pointer-events:none;white-space:pre-line}
+#banner.show{opacity:1}
+#debug-overlay{position:absolute;bottom:60px;left:50%;transform:translateX(-50%);color:#ff0;font-size:16px;font-weight:700;background:rgba(0,0,0,.8);padding:6px 16px;border-radius:6px;border:1px solid #ff0;display:none;pointer-events:none;font-family:monospace}
+#unlock-prompt{position:absolute;bottom:80px;left:50%;transform:translateX(-50%);color:#ffd700;font-size:20px;background:rgba(0,0,0,.75);padding:12px 28px;border-radius:8px;border:2px solid #ffd700;display:none;text-align:center;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+#unlock-prompt .cost{font-weight:700;font-size:22px}
+#unlock-prompt .key{background:#ffd700;color:#000;padding:2px 10px;border-radius:4px;font-weight:700}
+#unlock-prompt .hint{font-size:13px;color:#ddd;margin-top:4px}
+#upgrade-prompt{position:absolute;bottom:140px;left:50%;transform:translateX(-50%);color:#4FC3F7;font-size:20px;background:rgba(0,0,0,.75);padding:12px 28px;border-radius:8px;border:2px solid #4FC3F7;display:none;text-align:center;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+#food-prompt{position:absolute;bottom:200px;left:50%;transform:translateX(-50%);color:#a5d6a7;font-size:20px;background:rgba(0,0,0,.75);padding:12px 28px;border-radius:8px;border:2px solid #a5d6a7;display:none;text-align:center;text-shadow:0 1px 4px rgba(0,0,0,.5)}
+#game-over{position:absolute;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,.7);display:none;justify-content:center;align-items:center;flex-direction:column;pointer-events:auto;cursor:pointer}
+#game-over h1{color:#ff4444;font-size:64px;margin-bottom:10px}
+#game-over .stat{color:#fff;font-size:22px;margin:4px 0}
+#game-over .stat span{color:#ffd700;font-weight:700}
+#game-over .restart{color:#88ddff;font-size:18px;margin-top:20px;border:2px solid #88ddff;padding:10px 30px;border-radius:8px;transition:.2s}
+#game-over .restart:hover{background:#88ddff22}
+</style>
+</head>
+<body>
+<canvas id="game"></canvas>
+<div id="ui">
+  <div id="hud">
+    <div class="stat hp"><span class="icon">&#x2764;&#xFE0F;</span><span class="val" id="hud-hp">100</span></div>
+    <div class="stat coin"><span class="icon">&#x1FA99;</span><span class="val" id="hud-coins">0</span></div>
+    <div class="stat kill"><span class="icon">&#x1F480;</span><span class="val" id="hud-kills">0</span></div>
+    <div class="stat room"><span class="val" id="hud-room">Entrance</span></div>
+    <div class="stat weapon"><span class="val" id="hud-weapon">&#x1F52B;</span></div>
+  </div>
+  <div id="banner"></div>
+  <div id="debug-overlay"></div>
+  <div id="unlock-prompt">
+    Press <span class="key">E</span> to unlock <span class="cost" id="unlock-cost">10</span> coins
+    <div class="hint" id="unlock-name"></div>
+  </div>
+  <div id="upgrade-prompt">
+    Press <span class="key">E</span> to buy <span id="upgrade-name"></span> — <span class="cost" id="upgrade-cost">0</span> coins
+  </div>
+  <div id="food-prompt">
+    Press <span class="key">E</span> to eat <span id="food-heal">+5 HP</span>
+  </div>
+</div>
+<div id="game-over">
+  <h1>GAME OVER</h1>
+  <div class="stat">Zombies Killed: <span id="final-kills">0</span></div>
+  <div class="stat">Rooms Unlocked: <span id="final-rooms">1</span></div>
+  <div class="stat">Coins Collected: <span id="final-coins">0</span></div>
+  <div class="restart">Click to Restart</div>
+</div>
+<script>
+// ==================== SETUP ====================
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() {
+  W = canvas.width = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ==================== CONFIG ====================
+const ROOM_H = 460;
+const WORLD_H = 700;
+const ROOM_Y = (WORLD_H - ROOM_H) / 2;
+const PR = 16;
+const PS = 240;
+const ZR = 14;
+const ZS = 72;
+const BR = 4;
+const BS = 550;
+const FR = 0.35;
+const AR = 340;
+const CR = 7;
+const DOOR_W = 72;
+const DOOR_HD = DOOR_W / 2;
+const DOOR_RANGE = 55;
+const COIN_ATTRACT_RANGE = 170;
+
+const ZOMBIE_TYPES = [
+  { r: ZR, speedM: 1,    hpM: 1,   color: '#5cb85c', dark: '#3d8b3d', eye: '#ff3333', weight: 0.6 },
+  { r: 11, speedM: 1.35, hpM: 0.7, color: '#8ab85c', dark: '#6a8b3d', eye: '#ff6644', weight: 0.2 },
+  { r: 18, speedM: 0.7,  hpM: 1.5, color: '#4d8b4d', dark: '#2a6a3d', eye: '#cc2222', weight: 0.2 },
+];
+
+function pickZombieType() {
+  const r = Math.random();
+  let acc = 0;
+  for (const t of ZOMBIE_TYPES) {
+    acc += t.weight;
+    if (r < acc) return t;
+  }
+  return ZOMBIE_TYPES[0];
+}
+const SWORD_RANGE = 80;
+const SWORD_CD_HIT = 0.55;
+const SWORD_CD_MISS = 0.25;
+
+// ==================== UTILITY ====================
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const lerp = (a, b, t) => a + (b - a) * t;
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const rand = (lo, hi) => Math.random() * (hi - lo) + lo;
+const randInt = (lo, hi) => Math.floor(rand(lo, hi + 1));
+
+function closestSegmentPoint(cx, cy, x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq < 0.001) return { x: x1, y: y1 };
+  let t = ((cx - x1) * dx + (cy - y1) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  return { x: x1 + t * dx, y: y1 + t * dy };
+}
+
+// ==================== SOUND ====================
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playSound(type) {
+  try {
+    const ac = getAudioCtx();
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.connect(gain);
+    gain.connect(ac.destination);
+    const t = ac.currentTime;
+    switch (type) {
+      case 'shoot':
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(600, t);
+        osc.frequency.exponentialRampToValueAtTime(100, t + 0.08);
+        gain.gain.setValueAtTime(0.06, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.08);
+        osc.start(t); osc.stop(t + 0.08);
+        break;
+      case 'hit':
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(250, t);
+        gain.gain.setValueAtTime(0.05, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+        osc.start(t); osc.stop(t + 0.06);
+        break;
+      case 'coin':
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, t);
+        osc.frequency.setValueAtTime(1320, t + 0.06);
+        gain.gain.setValueAtTime(0.06, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+        osc.start(t); osc.stop(t + 0.15);
+        break;
+      case 'unlock':
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(440, t);
+        osc.frequency.setValueAtTime(660, t + 0.1);
+        osc.frequency.setValueAtTime(880, t + 0.2);
+        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.3);
+        osc.start(t); osc.stop(t + 0.3);
+        break;
+      case 'sword':
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(180, t);
+        osc.frequency.exponentialRampToValueAtTime(60, t + 0.1);
+        gain.gain.setValueAtTime(0.04, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.1);
+        osc.start(t); osc.stop(t + 0.1);
+        break;
+      case 'hurt':
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(120, t);
+        osc.frequency.exponentialRampToValueAtTime(40, t + 0.15);
+        gain.gain.setValueAtTime(0.08, t);
+        gain.gain.exponentialRampToValueAtTime(0.001, t + 0.15);
+        osc.start(t); osc.stop(t + 0.15);
+        break;
+    }
+  } catch(e) {}
+}
+
+// ==================== ROOM GENERATION ====================
+const ROOM_NAMES = [
+  'Entrance','Kitchen','Dining Hall','Library','Greenhouse',
+  'Forge','Observatory','Armory','Treasury','Throne Room',
+  'Dungeon','Crypt','Laboratory','Gate Room','Sanctuary',
+  'Shooting Range','Workshop','Enchanting Table','Arena','Vault',
+  'Conservatory','Infirmary','Pantry','Spa','Arcane Chamber',
+];
+
+const ROOM_COLORS = [
+  '#d4a574','#e8d4b8','#c8d8b8','#b8c8e8','#b8e8c8',
+  '#d8c8b8','#c8b8d8','#e8b8b8','#ffd700','#c8a8e8',
+  '#a8a8a8','#8a8a7a','#b8e8e8','#e8a8d8','#e8e8b8',
+  '#c8d8d8','#d8c8a8','#e8d8e8','#d8d8a8','#a8d8a8',
+  '#d8e8d8','#f0d8d8','#d8d0b0','#d0e0f0','#e0c8f0',
+];
+
+const ROOM_EFFECTS = {
+  'Kitchen':          { desc: 'Food items restore HP' },
+  'Dining Hall':      { desc: 'Food items restore HP' },
+  'Pantry':           { desc: 'Food items restore HP' },
+  'Treasury':         { desc: '+1 coin per kill' },
+  'Dungeon':          { desc: 'More zombies spawn here' },
+  'Armory':           { desc: 'Gun upgraded: dual shot + faster fire' },
+  'Forge':            { desc: 'Sword unlocked: auto-slash nearby zombies' },
+  'Shooting Range':   { desc: 'Fire rate increased' },
+  'Workshop':         { desc: 'Bullets do +1 damage' },
+  'Enchanting Table': { desc: 'Bullets pierce through zombies' },
+  'Sanctuary':        { desc: 'Slow HP regen while inside' },
+  'Spa':              { desc: 'Slow HP regen while inside' },
+  'Library':          { desc: '20% more coins from all sources' },
+  'Infirmary':        { desc: '+30 HP' },
+  'Gate Room':        { desc: 'Bullets knock zombies back' },
+  'Observatory':      { desc: 'Aim assist arc +5\u00b0' },
+};
+
+// ==================== INFINITE ROOMS ====================
+let rooms, walls, WORLD_W;
+let startFoliage = [];
+
+function generateRooms(startIndex, count, startX) {
+  const newRooms = [];
+  let x = startX;
+  for (let i = 0; i < count; i++) {
+    const idx = startIndex + i;
+    const scale = 1 + (idx / 30) * 0.5;
+    const w = Math.floor(((Math.random() < 0.5 ? 480 : 520) + (Math.random() * 200 | 0)) * scale);
+    const h = Math.floor((420 + (Math.random() * 80 | 0)) * scale);
+    const y = (WORLD_H - h) / 2 + (Math.random() - 0.5) * 20;
+    const name = idx === 0 ? 'Entrance' : ROOM_NAMES[randInt(0, ROOM_NAMES.length - 1)];
+    newRooms.push({
+      index: idx, x, y, w, h, name,
+      color: ROOM_COLORS[randInt(0, ROOM_COLORS.length - 1)],
+      unlocked: idx === 0,
+      entered: false,
+      cost: idx === 0 ? 0 : Math.floor(10 + idx * 3 + Math.pow(idx, 1.3)),
+      upgrade: name === 'Armory' ? { type: 'Armory', cost: 100, purchased: false, px: 0, py: 0 }
+              : name === 'Forge' ? { type: 'Forge', cost: 50, purchased: false, px: 0, py: 0 }
+              : name === 'Workshop' ? { type: 'Workshop', cost: 100, purchased: false, px: 0, py: 0 }
+              : null,
+    });
+    const r = newRooms[newRooms.length - 1];
+    if (r.upgrade) { r.upgrade.px = r.x + r.w / 2; r.upgrade.py = r.y + r.h / 2; }
+    // Per-room foliage
+    const fol = [];
+    // Trees in grass above and below
+    for (let i = 0; i < 4; i++) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      fol.push({
+        x: rand(r.x + 10, r.x + r.w - 10),
+        y: side < 0 ? rand(r.y - 60, r.y - 10) : rand(r.y + r.h + 10, r.y + r.h + 60),
+        type: 'tree', r: rand(14, 24),
+      });
+    }
+    // Bushes in grass above and below
+    for (let i = 0; i < 6; i++) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      fol.push({
+        x: rand(r.x, r.x + r.w),
+        y: side < 0 ? rand(r.y - 40, r.y - 5) : rand(r.y + r.h + 5, r.y + r.h + 40),
+        type: 'bush', r: rand(5, 12),
+      });
+    }
+    // Flowers in grass
+    for (let i = 0; i < 6; i++) {
+      const side = Math.random() < 0.5 ? -1 : 1;
+      fol.push({
+        x: rand(r.x + 10, r.x + r.w - 10),
+        y: side < 0 ? rand(r.y - 50, r.y - 5) : rand(r.y + r.h + 5, r.y + r.h + 50),
+        type: 'flower', r: rand(3, 6),
+        color: ['#e91e63','#ff9800','#9c27b0','#f44336','#ffeb3b'][randInt(0, 4)],
+      });
+    }
+    r.foliage = fol;
+    // Food items
+    r.food = [];
+    if (['Kitchen','Dining Hall','Pantry'].includes(name)) {
+      const count = 3 + randInt(0, 2);
+      for (let i = 0; i < count; i++) {
+        r.food.push({
+          x: rand(r.x + 30, r.x + r.w - 30),
+          y: rand(r.y + 30, r.y + r.h - 30),
+          consumed: false,
+        });
+      }
+    }
+    x += w;
+  }
+  return { rooms: newRooms, nextX: x };
+}
+
+function ensureRooms() {
+  const lastUnlockedIdx = rooms.some(r => r.unlocked) ? rooms.filter(r => r.unlocked).length - 1 : 0;
+  if (lastUnlockedIdx >= rooms.length - 3) {
+    const result = generateRooms(rooms.length, 5, rooms[rooms.length - 1].x + rooms[rooms.length - 1].w);
+    rooms.push(...result.rooms);
+    WORLD_W = rooms.reduce((s, r) => s + r.w, 0) + 700;
+    walls = generateWalls(rooms);
+  }
+}
+
+function generateWalls(rooms) {
+  const walls = [];
+  for (const r of rooms) {
+    walls.push({ x1: r.x, y1: r.y, x2: r.x + r.w, y2: r.y });
+    walls.push({ x1: r.x, y1: r.y + r.h, x2: r.x + r.w, y2: r.y + r.h });
+  }
+  const f = rooms[0];
+  walls.push({ x1: f.x, y1: f.y, x2: f.x, y2: f.y + f.h });
+  const l = rooms[rooms.length - 1];
+  walls.push({ x1: l.x + l.w, y1: l.y, x2: l.x + l.w, y2: l.y + l.h });
+  for (let i = 0; i < rooms.length - 1; i++) {
+    const a = rooms[i], b = rooms[i + 1];
+    const wx = a.x + a.w;
+    const topY = Math.min(a.y, b.y);
+    const botY = Math.max(a.y + a.h, b.y + b.h);
+    const midY = (a.y + a.h / 2 + b.y + b.h / 2) / 2;
+    if (b.unlocked) {
+      walls.push({ x1: wx, y1: topY, x2: wx, y2: midY - DOOR_HD });
+      walls.push({ x1: wx, y1: midY + DOOR_HD, x2: wx, y2: botY });
+    } else {
+      walls.push({ x1: wx, y1: topY, x2: wx, y2: botY });
+    }
+  }
+  return walls;
+}
+
+// ==================== DEBUG ====================
+function grantAllUpgrades() {
+  if (!player) return;
+  player.gunUpgraded = true;
+  player.hasSword = true;
+  player.bonusDamage = 1;
+  player.bulletPierce = true;
+  player.knockback = true;
+  player.treasuryChance = 1;
+  player.libraryBonus = 1.2;
+  player.fireRateMult = Math.min(player.fireRateMult, 0.55);
+  player.aimArcBonus = 5;
+  for (const r of rooms) {
+    if (r.upgrade) r.upgrade.purchased = true;
+  }
+  updateHUD();
+}
+function showDebugOverlay() {
+  const el = document.getElementById('debug-overlay');
+  if (!el) return;
+  if (!debugMode) { el.style.display = 'none'; return; }
+  const lines = [];
+  if (debugNoclip) lines.push('NOCLIP');
+  if (debugSpeed) lines.push('2x SPEED');
+  if (debugGod) lines.push('GOD MODE');
+  el.textContent = 'DEBUG [' + lines.join('] [') + ']';
+  el.style.display = 'block';
+}
+
+// ==================== BANNER ====================
+let bannerTimer = 0;
+let bannerLines = [];
+
+function showBanner(lines, duration) {
+  bannerLines = lines;
+  bannerTimer = duration;
+  const el = document.getElementById('banner');
+  el.textContent = lines.join('\n');
+  el.classList.add('show');
+}
+
+// ==================== GAME STATE ====================
+let gameOver, gameTime, kills, totalCoins;
+let spawnTimer, spawnInterval, difficultyTimer, leftSpawnTimer;
+let player, camera;
+let zombies, bullets, coinItems, particles;
+let mouseDown, mouseX, mouseY;
+let unlockDoorInfo;
+let upgradeInfo;
+let foodInfo;
+
+const KEYS = {};
+let debugMode = false;
+let debugNoclip = false;
+let debugSpeed = false;
+let debugGod = false;
+document.addEventListener('keydown', e => {
+  KEYS[e.key] = true;
+  if ((e.key === 'e' || e.key === 'E') && !gameOver) { if (!tryUnlock()) tryPurchaseUpgrade(); if (!upgradeInfo) tryEatFood(); }
+  if (e.key === 'r' || e.key === 'R') restartGame();
+  if (e.key === '"') { debugMode = !debugMode; showDebugOverlay(); }
+  if (debugMode) {
+    if (e.key === '1') { debugNoclip = !debugNoclip; showDebugOverlay(); }
+    if (e.key === '2') { debugSpeed = !debugSpeed; showDebugOverlay(); }
+    if (e.key === '3') { debugGod = !debugGod; showDebugOverlay(); }
+    if (e.key === '4') { grantAllUpgrades(); showDebugOverlay(); }
+    if (e.key === '5' && player) { player.coins += 100; updateHUD(); showDebugOverlay(); }
+    if (e.key === '6' && player) { player.health = player.maxHealth; updateHUD(); showDebugOverlay(); }
+    if (e.key === '7') { for (let i = 0; i < 5; i++) spawnZombie(); showDebugOverlay(); }
+  }
+});
+document.addEventListener('keyup', e => { KEYS[e.key] = false; });
+
+canvas.addEventListener('mousedown', e => { mouseDown = true; });
+canvas.addEventListener('mouseup', e => { mouseDown = false; });
+canvas.addEventListener('mouseleave', e => { mouseDown = false; });
+canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
+
+function initGame() {
+  const result = generateRooms(0, 6, 350);
+  rooms = result.rooms;
+  rooms[0].unlocked = true;
+  walls = generateWalls(rooms);
+  WORLD_W = rooms.reduce((s, r) => s + r.w, 0) + 700;
+  gameOver = false;
+  gameTime = 0;
+  kills = 0;
+  totalCoins = 0;
+  spawnTimer = 0;
+  spawnInterval = 2.6;
+  difficultyTimer = 0;
+  leftSpawnTimer = 0;
+  player = {
+    x: rooms[0].x + rooms[0].w / 2, y: rooms[0].y + rooms[0].h / 2,
+    r: PR, health: 100, maxHealth: 100, coins: 0,
+    fireCD: 0, gunAngle: 0, damageCD: 0, hurtFlash: 0,
+    gunUpgraded: false, hasSword: false, swordCD: 0, swordSwing: 0,
+    fireRateMult: 1, bonusDamage: 0, bulletPierce: false, knockback: false,
+    treasuryChance: 0, libraryBonus: 1, dungeonActive: false,
+    regenTimer: 0,     aimArcBonus: 0,
+    lastRoomIdx: -1,
+  };
+  camera = { x: 0, y: 0 };
+  zombies = [];
+  bullets = [];
+  coinItems = [];
+  particles = [];
+  unlockDoorInfo = null;
+  upgradeInfo = null;
+  foodInfo = null;
+  mouseDown = false;
+  mouseX = window.innerWidth / 2;
+  mouseY = window.innerHeight / 2;
+  bannerTimer = 0;
+  document.getElementById('banner').classList.remove('show');
+  document.getElementById('unlock-prompt').style.display = 'none';
+  document.getElementById('game-over').style.display = 'none';
+  // Start-area foliage (left of entrance, generated once)
+  startFoliage = [];
+  const minY = Math.min(...rooms.map(r => r.y));
+  const maxBot = Math.max(...rooms.map(r => r.y + r.h));
+  for (let i = 0; i < 12; i++) {
+    const t = Math.random();
+    startFoliage.push({
+      x: rand(rooms[0].x - 280, rooms[0].x - 20),
+      y: rand(minY - 40, maxBot + 40),
+      type: t < 0.25 ? 'tree' : t < 0.5 ? 'bush' : 'flower',
+      r: t < 0.25 ? rand(14, 24) : rand(3, 10),
+      color: t >= 0.5 ? ['#e91e63','#ff9800','#9c27b0','#f44336','#ffeb3b'][randInt(0, 4)] : undefined,
+    });
+  }
+}
+
+// ==================== PARTICLES ====================
+function spawnParticles(x, y, count, color, speed, life) {
+  for (let i = 0; i < count; i++) {
+    const angle = rand(0, Math.PI * 2);
+    const spd = rand(speed * 0.3, speed);
+    particles.push({
+      x, y, color,
+      vx: Math.cos(angle) * spd,
+      vy: Math.sin(angle) * spd,
+      life: rand(life * 0.5, life),
+      maxLife: life,
+      r: rand(2, 5),
+    });
+  }
+}
+
+// ==================== COLLISION ====================
+function circleVsSegment(cx, cy, cr, x1, y1, x2, y2) {
+  const cp = closestSegmentPoint(cx, cy, x1, y1, x2, y2);
+  const dx = cx - cp.x, dy = cy - cp.y;
+  const d = Math.hypot(dx, dy);
+  return d < cr ? { overlap: cr - d, nx: d > 0.001 ? dx / d : 0, ny: d > 0.001 ? dy / d : 0, cp } : null;
+}
+
+function collidesAny(cx, cy, cr, walls) {
+  for (const w of walls) {
+    if (circleVsSegment(cx, cy, cr, w.x1, w.y1, w.x2, w.y2)) return true;
+  }
+  return false;
+}
+
+function moveWithCollision(entity, dx, dy, walls) {
+  const sx = entity.x, sy = entity.y;
+  entity.x += dx;
+  if (collidesAny(entity.x, entity.y, entity.r, walls)) entity.x = sx;
+  entity.y += dy;
+  if (collidesAny(entity.x, entity.y, entity.r, walls)) entity.y = sy;
+}
+
+// ==================== SPAWNING ====================
+function spawnZombie() {
+  const unlocked = rooms.filter(r => r.unlocked);
+  if (unlocked.length === 0) return;
+  const room = unlocked[unlocked.length - 1];
+  const vt = pickZombieType();
+  let x = rand(room.x + room.w * 0.5, room.x + room.w - 20);
+  let y = rand(room.y + 30, room.y + room.h - 30);
+  if (collidesAny(x, y, vt.r, walls)) {
+    x = room.x + room.w * 0.7 + rand(-20, 20);
+    y = room.y + room.h * 0.5 + rand(-30, 30);
+  }
+  const baseHp = gameTime > 70 ? 3 : gameTime > 35 ? 2 : 1;
+  const hp = Math.max(1, Math.round(baseHp * vt.hpM));
+  const baseSpeed = ZS + rand(-6, 10) + gameTime * 0.1;
+  zombies.push({
+    x, y, r: vt.r, hp, maxHp: hp,
+    speed: baseSpeed * vt.speedM, hitFlash: 0,
+    color: vt.color, dark: vt.dark, eye: vt.eye,
+  });
+}
+
+function spawnZombieFromLeft() {
+  const f = rooms[0];
+  const vt = pickZombieType();
+  let x = rand(f.x + 20, f.x + 80);
+  let y = rand(f.y + 30, f.y + f.h - 30);
+  if (collidesAny(x, y, vt.r, walls)) { x = f.x + 50; y = f.y + f.h * 0.5; }
+  const baseHp = gameTime > 70 ? 3 : gameTime > 35 ? 2 : 1;
+  const hp = Math.max(1, Math.round(baseHp * vt.hpM));
+  const baseSpeed = ZS + rand(-6, 10) + gameTime * 0.1;
+  zombies.push({
+    x, y, r: vt.r, hp, maxHp: hp,
+    speed: baseSpeed * vt.speedM, hitFlash: 0,
+    color: vt.color, dark: vt.dark, eye: vt.eye,
+  });
+}
+
+function spawnCoins(x, y, count) {
+  for (let i = 0; i < count; i++) {
+    coinItems.push({
+      x: x + rand(-25, 25), y: y + rand(-25, 25), r: CR,
+      life: 20, bob: rand(0, Math.PI * 2),
+    });
+  }
+}
+
+function killZombie(z, index) {
+  let drop = randInt(1, 3);
+  if (Math.random() < player.treasuryChance) drop++;
+  drop = Math.round(drop * player.libraryBonus);
+  spawnCoins(z.x, z.y, drop);
+  spawnParticles(z.x, z.y, 15, '#66bb6a', 80, 0.4);
+  zombies.splice(index, 1);
+  kills++;
+  totalCoins += drop;
+}
+
+// ==================== ROOM EFFECTS ====================
+function applyRoomEffect(room) {
+  const name = room.name;
+  const eff = ROOM_EFFECTS[name];
+  if (!eff) return;
+  switch (name) {
+    case 'Infirmary':
+      player.health = Math.min(player.maxHealth, player.health + 30);
+      showBanner(['INFIRMARY', '+30 HP!'], 2.5);
+      break;
+    case 'Treasury':
+      player.treasuryChance = 1;
+      showBanner(['TREASURY', '+1 coin per kill!'], 2.5);
+      break;
+    case 'Armory':
+      if (!player.gunUpgraded) {
+        showBanner(['ARMORY', 'Gun upgrade on pedestal - ' + room.upgrade.cost + ' coins'], 3);
+      }
+      break;
+    case 'Forge':
+      if (!player.hasSword) {
+        showBanner(['FORGE', 'Sword on pedestal - ' + room.upgrade.cost + ' coins'], 3);
+      }
+      break;
+    case 'Shooting Range':
+      player.fireRateMult *= 0.7;
+      showBanner(['SHOOTING RANGE', 'Fire rate increased!'], 2.5);
+      break;
+    case 'Workshop':
+      showBanner(['WORKSHOP', 'Damage upgrade on pedestal - ' + room.upgrade.cost + ' coins'], 3);
+      break;
+    case 'Enchanting Table':
+      player.bulletPierce = true;
+      showBanner(['ENCHANTING TABLE', 'Bullets pierce through zombies!'], 2.5);
+      break;
+    case 'Gate Room':
+      player.knockback = true;
+      showBanner(['GATE ROOM', 'Bullets knock zombies back!'], 2.5);
+      break;
+    case 'Sanctuary':
+    case 'Spa':
+      showBanner([name.toUpperCase(), 'Slow HP regen while inside'], 2.5);
+      break;
+    case 'Library':
+      player.libraryBonus = 1.2;
+      showBanner(['LIBRARY', '20% more coins from all sources!'], 2.5);
+      break;
+    case 'Observatory':
+      player.aimArcBonus = Math.PI / 36;
+      showBanner(['OBSERVATORY', 'Aim assist arc +5\u00b0!'], 2.5);
+      break;
+  }
+}
+
+// ==================== UNLOCK ====================
+function tryUnlock() {
+  if (!unlockDoorInfo) return false;
+  const room = unlockDoorInfo.room;
+  if (room.unlocked) return false;
+  if (player.coins < room.cost) return false;
+  player.coins -= room.cost;
+  room.unlocked = true;
+  walls = generateWalls(rooms);
+  playSound('unlock');
+  spawnParticles(room.x + room.w / 2, room.y + room.h / 2, 50, '#ffd700', 140, 0.8);
+  spawnParticles(room.x + room.w / 2, room.y + room.h / 2, 25, '#fff', 100, 0.5);
+  applyRoomEffect(room);
+  ensureRooms();
+  updateHUD();
+  unlockDoorInfo = null;
+  document.getElementById('unlock-prompt').style.display = 'none';
+  return true;
+}
+
+function tryPurchaseUpgrade() {
+  if (!upgradeInfo) return false;
+  const upg = upgradeInfo;
+  if (upg.purchased) return false;
+  if (player.coins < upg.cost) return false;
+  player.coins -= upg.cost;
+  upg.purchased = true;
+  if (upg.type === 'Armory') {
+    player.gunUpgraded = true;
+    spawnParticles(upg.px, upg.py, 30, '#4FC3F7', 150, 1);
+    showBanner(['ARMORY', 'Gun upgraded - dual shot!'], 2.5);
+  } else if (upg.type === 'Forge') {
+    player.hasSword = true;
+    player.swordCD = 0;
+    spawnParticles(upg.px, upg.py, 30, '#e8a8d8', 150, 1);
+    showBanner(['FORGE', 'Sword unlocked - auto-slash!'], 2.5);
+  } else if (upg.type === 'Workshop') {
+    player.bonusDamage += 1;
+    spawnParticles(upg.px, upg.py, 30, '#ff9800', 150, 1);
+    showBanner(['WORKSHOP', 'Bullets do +1 damage!'], 2.5);
+  }
+  playSound('unlock');
+  updateHUD();
+  upgradeInfo = null;
+  document.getElementById('upgrade-prompt').style.display = 'none';
+  return true;
+}
+
+function tryEatFood() {
+  if (!foodInfo) return;
+  const item = foodInfo;
+  if (item.consumed) return;
+  item.consumed = true;
+  player.health = Math.min(player.maxHealth, player.health + 5);
+  spawnParticles(item.x, item.y, 8, '#a5d6a7', 40, 0.3);
+  document.getElementById('food-prompt').style.display = 'none';
+  updateHUD();
+}
+
+function findNearestLockedDoor() {
+  for (let i = 0; i < rooms.length - 1; i++) {
+    if (rooms[i].unlocked && !rooms[i + 1].unlocked) {
+      const dx = rooms[i].x + rooms[i].w;
+      const dy = (rooms[i].y + rooms[i].h / 2 + rooms[i + 1].y + rooms[i + 1].h / 2) / 2;
+      if (Math.hypot(player.x - dx, player.y - dy) < DOOR_RANGE) {
+        return { x: dx, y: dy, room: rooms[i + 1] };
+      }
+      break;
+    }
+  }
+  return null;
+}
+
+// ==================== UPDATE ====================
+function update(dt) {
+  if (gameOver) return;
+  gameTime += dt;
+
+  // Difficulty
+  difficultyTimer += dt;
+  if (difficultyTimer > 10) {
+    difficultyTimer = 0;
+    spawnInterval = Math.max(0.35, spawnInterval - 0.07);
+  }
+
+  // Spawn from right
+  spawnTimer -= dt;
+  if (spawnTimer <= 0) {
+    spawnZombie();
+    if (gameTime > 15 && Math.random() < 0.35) spawnZombie();
+    spawnTimer = spawnInterval;
+  }
+
+  // Spawn from left
+  leftSpawnTimer -= dt;
+  if (leftSpawnTimer <= 0) {
+    spawnZombieFromLeft();
+    leftSpawnTimer = Math.max(1.0, spawnInterval * 1.5);
+  }
+
+  // Dungeon: extra spawns
+  if (player.dungeonActive && Math.random() < 0.05) spawnZombie();
+
+  // Player movement
+  let mx = 0, my = 0;
+  if (KEYS['w'] || KEYS['W'] || KEYS['ArrowUp']) my = -1;
+  if (KEYS['s'] || KEYS['S'] || KEYS['ArrowDown']) my = 1;
+  if (KEYS['a'] || KEYS['A'] || KEYS['ArrowLeft']) mx = -1;
+  if (KEYS['d'] || KEYS['D'] || KEYS['ArrowRight']) mx = 1;
+  if (mx !== 0 && my !== 0) { mx *= 0.7071; my *= 0.7071; }
+  const ps = debugSpeed ? PS * 2 : PS;
+  if (debugNoclip) {
+    player.x += mx * ps * dt;
+    player.y += my * ps * dt;
+  } else {
+    moveWithCollision(player, mx * ps * dt, my * ps * dt, walls);
+  }
+
+  // Room entry detection
+  let currentRoom = null;
+  for (const r of rooms) {
+    if (!r.unlocked) continue;
+    if (player.x >= r.x && player.x <= r.x + r.w && player.y >= r.y && player.y <= r.y + r.h) {
+      currentRoom = r;
+      break;
+    }
+  }
+  if (currentRoom) {
+    // Update dungeon state
+    player.dungeonActive = currentRoom.name === 'Dungeon';
+    // First entry
+    if (currentRoom.index !== player.lastRoomIdx) {
+      player.lastRoomIdx = currentRoom.index;
+      if (!currentRoom.entered) {
+        currentRoom.entered = true;
+        const name = currentRoom.name;
+        if (name === 'Dungeon') {
+          showBanner(['DUNGEON', 'More zombies spawn here!'], 2.5);
+        } else if (name !== 'Entrance' && ROOM_EFFECTS[name] && !['Armory','Forge','Infirmary','Treasury','Shooting Range','Workshop','Enchanting Table','Gate Room','Library','Observatory'].includes(name)) {
+          showBanner([name.toUpperCase(), ROOM_EFFECTS[name].desc], 2.5);
+        }
+      }
+    }
+    // Sanctuary/Spa regen
+    if (currentRoom.name === 'Sanctuary' || currentRoom.name === 'Spa') {
+      player.regenTimer += dt;
+      if (player.regenTimer >= 1) {
+        player.regenTimer = 0;
+        player.health = Math.min(player.maxHealth, player.health + 1);
+      }
+    }
+  }
+
+  // Manual aim with arc assist
+  const aimWx = mouseX + camera.x;
+  const aimWy = mouseY + camera.y;
+  player.gunAngle = Math.atan2(aimWy - player.y, aimWx - player.x);
+
+  if (mouseDown && player.fireCD <= 0) {
+    const ARC = Math.PI / 18 + player.aimArcBonus;
+    let bestZombie = null;
+    let bestDiff = Infinity;
+    for (const z of zombies) {
+      const d = dist(player, z);
+      if (d > AR) continue;
+      const za = Math.atan2(z.y - player.y, z.x - player.x);
+      let diff = Math.abs(za - player.gunAngle);
+      if (diff > Math.PI) diff = Math.PI * 2 - diff;
+      const hitboxArc = d > 0 ? Math.asin(Math.min(z.r / d, 1)) : Math.PI / 2;
+      if (diff - hitboxArc <= ARC && diff < bestDiff) {
+        bestDiff = diff;
+        bestZombie = z;
+      }
+    }
+    const fireAngle = bestZombie
+      ? Math.atan2(bestZombie.y - player.y, bestZombie.x - player.x)
+      : player.gunAngle;
+    const bulletCount = player.gunUpgraded ? 2 : 1;
+    for (let bi = 0; bi < bulletCount; bi++) {
+      const spread = player.gunUpgraded ? (bi - 0.5) * 0.08 : 0;
+      const ba = fireAngle + spread;
+      bullets.push({
+        x: player.x + Math.cos(ba) * (player.r + 6),
+        y: player.y + Math.sin(ba) * (player.r + 6),
+        vx: Math.cos(ba) * BS,
+        vy: Math.sin(ba) * BS,
+        life: 1.5, damage: 1 + player.bonusDamage,
+        pierce: player.bulletPierce,
+        hitList: [],
+      });
+    }
+    spawnParticles(
+      player.x + Math.cos(fireAngle) * (player.r + 8),
+      player.y + Math.sin(fireAngle) * (player.r + 8),
+      bulletCount * 3, '#ffeb3b', 60, 0.12
+    );
+    player.fireCD = FR * player.fireRateMult;
+    if (player.gunUpgraded) player.fireCD *= 0.55;
+    playSound('shoot');
+  }
+  if (player.fireCD > 0) player.fireCD -= dt;
+
+  // Bullets
+  for (let i = bullets.length - 1; i >= 0; i--) {
+    const b = bullets[i];
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+    b.life -= dt;
+    if (b.life <= 0 || b.x < -200 || b.x > WORLD_W + 200 || b.y < -200 || b.y > WORLD_H + 200) {
+      bullets.splice(i, 1);
+      continue;
+    }
+    // Wall collision
+    let wallHit = false;
+    for (const w of walls) {
+      if (circleVsSegment(b.x, b.y, BR, w.x1, w.y1, w.x2, w.y2)) {
+        wallHit = true;
+        break;
+      }
+    }
+    if (wallHit) {
+      spawnParticles(b.x, b.y, 4, '#aaa', 40, 0.15);
+      bullets.splice(i, 1);
+      continue;
+    }
+    let hit = false;
+    for (let j = zombies.length - 1; j >= 0; j--) {
+      const z = zombies[j];
+      if (b.hitList && b.hitList.includes(j)) continue;
+      if (dist(b, z) < z.r + BR) {
+        z.hp -= b.damage;
+        z.hitFlash = 0.12;
+        hit = true;
+        playSound('hit');
+        player.health = Math.min(player.maxHealth, player.health + 0.5);
+        spawnParticles(b.x, b.y, 5, '#fff', 50, 0.15);
+        if (player.knockback) {
+          const kb = Math.atan2(z.y - b.y, z.x - b.x);
+          z.x += Math.cos(kb) * 40;
+          z.y += Math.sin(kb) * 40;
+        }
+        if (z.hp <= 0) killZombie(z, j);
+        if (b.pierce) {
+          if (!b.hitList) b.hitList = [];
+          b.hitList.push(j);
+          b.damage = Math.max(1, b.damage - 1);
+          if (b.damage <= 0) { hit = true; break; }
+          continue;
+        }
+        break;
+      }
+    }
+    if (hit && !b.pierce) bullets.splice(i, 1);
+    else if (hit && b.pierce && b.damage <= 0) bullets.splice(i, 1);
+  }
+
+  // Player damage cooldown
+  if (player.damageCD > 0) player.damageCD -= dt;
+  if (player.hurtFlash > 0) player.hurtFlash -= dt;
+
+  // Zombie movement + damage
+  for (let i = zombies.length - 1; i >= 0; i--) {
+    const z = zombies[i];
+    if (z.hitFlash > 0) z.hitFlash -= dt;
+    const angle = Math.atan2(player.y - z.y, player.x - z.x);
+    const dx = Math.cos(angle) * z.speed * dt;
+    const dy = Math.sin(angle) * z.speed * dt;
+    moveWithCollision(z, dx, dy, walls);
+    if (player.damageCD <= 0 && dist(player, z) < player.r + z.r) {
+      if (!debugGod) {
+        const zombieDmg = 8 + gameTime * 0.015;
+        player.health -= zombieDmg;
+      }
+      player.damageCD = 0.4;
+      player.hurtFlash = 0.15;
+      playSound('hurt');
+      spawnParticles(player.x + rand(-8, 8), player.y + rand(-8, 8), 3, '#ff4444', 50, 0.3);
+      if (player.health <= 0) {
+        player.health = 0;
+        gameOver = true;
+        showGameOver();
+      }
+    }
+  }
+
+  // Sword auto-attack
+  if (player.hasSword) {
+    player.swordCD -= dt;
+    if (player.swordCD <= 0) {
+      let hitAny = false;
+      for (let i = zombies.length - 1; i >= 0; i--) {
+        const z = zombies[i];
+        if (dist(player, z) < SWORD_RANGE) {
+          z.hp--;
+          z.hitFlash = 0.12;
+          hitAny = true;
+          if (z.hp <= 0) killZombie(z, i);
+        }
+      }
+      if (hitAny) {
+        player.swordCD = SWORD_CD_HIT;
+        player.swordSwing = 0.25;
+        playSound('sword');
+        spawnParticles(player.x, player.y, 8, '#ccc', 60, 0.3);
+      } else {
+        player.swordCD = SWORD_CD_MISS;
+      }
+    }
+  }
+  if (player.swordSwing > 0) player.swordSwing -= dt;
+
+  // Coin attraction
+  for (let i = coinItems.length - 1; i >= 0; i--) {
+    const c = coinItems[i];
+    c.life -= dt;
+    c.bob += dt * 3;
+    if (c.life <= 0) { coinItems.splice(i, 1); continue; }
+    const cx = player.x - c.x;
+    const cy = player.y - c.y;
+    const cd = Math.hypot(cx, cy);
+    if (cd < COIN_ATTRACT_RANGE && cd > 0.5) {
+      const pull = 160 * (1 - cd / COIN_ATTRACT_RANGE) * dt;
+      c.x += (cx / cd) * pull;
+      c.y += (cy / cd) * pull;
+    }
+    if (cd < player.r + c.r + 8) {
+      player.coins++;
+      totalCoins++;
+      playSound('coin');
+      spawnParticles(c.x, c.y, 8, '#ffd700', 40, 0.3);
+      coinItems.splice(i, 1);
+    }
+  }
+
+  // Particles
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * dt;
+    p.y += p.vy * dt;
+    p.vx *= 0.95;
+    p.vy *= 0.95;
+    p.life -= dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  // Banner timer
+  if (bannerTimer > 0) {
+    bannerTimer -= dt;
+    if (bannerTimer <= 0) {
+      document.getElementById('banner').classList.remove('show');
+    }
+  }
+
+  // Unlock prompt
+  unlockDoorInfo = findNearestLockedDoor();
+  const prompt = document.getElementById('unlock-prompt');
+  if (unlockDoorInfo) {
+    const room = unlockDoorInfo.room;
+    const canAfford = player.coins >= room.cost;
+    document.getElementById('unlock-cost').textContent = room.cost;
+    document.getElementById('unlock-name').textContent = room.name;
+    prompt.style.display = 'block';
+    prompt.style.borderColor = canAfford ? '#ffd700' : '#ff4444';
+    prompt.style.color = canAfford ? '#ffd700' : '#ff4444';
+    document.querySelector('#unlock-prompt .key').style.background = canAfford ? '#ffd700' : '#ff4444';
+  } else {
+    prompt.style.display = 'none';
+  }
+
+  // Upgrade pedestal prompt
+  upgradeInfo = null;
+  const uprompt = document.getElementById('upgrade-prompt');
+  if (currentRoom && currentRoom.upgrade && !currentRoom.upgrade.purchased && !gameOver) {
+    const d = dist(player, { x: currentRoom.upgrade.px, y: currentRoom.upgrade.py });
+    if (d < 60) {
+      upgradeInfo = currentRoom.upgrade;
+      const canAfford = player.coins >= upgradeInfo.cost;
+      document.getElementById('upgrade-name').textContent = upgradeInfo.type;
+      document.getElementById('upgrade-cost').textContent = upgradeInfo.cost;
+      uprompt.style.display = 'block';
+      uprompt.style.borderColor = canAfford ? '#ffd700' : '#ff4444';
+      uprompt.style.color = canAfford ? '#ffd700' : '#ff4444';
+    } else {
+      uprompt.style.display = 'none';
+    }
+  } else {
+    uprompt.style.display = 'none';
+  }
+
+  // Food prompt
+  foodInfo = null;
+  const fprompt = document.getElementById('food-prompt');
+  if (currentRoom && currentRoom.food && !gameOver) {
+    for (const item of currentRoom.food) {
+      if (item.consumed) continue;
+      if (dist(player, item) < 45) {
+        foodInfo = item;
+        break;
+      }
+    }
+    fprompt.style.display = foodInfo ? 'block' : 'none';
+  } else {
+    fprompt.style.display = 'none';
+  }
+
+  // Camera
+  const tx = player.x - W / 2;
+  const ty = player.y - H / 2;
+  camera.x = lerp(camera.x, tx, 0.08);
+  camera.y = lerp(camera.y, ty, 0.08);
+
+  updateHUD();
+}
+
+// ==================== RENDER ====================
+function render() {
+  ctx.clearRect(0, 0, W, H);
+  ctx.save();
+  ctx.translate(-camera.x, -camera.y);
+
+  // Background
+  ctx.fillStyle = '#87CEEB';
+  ctx.fillRect(-100, -100, WORLD_W + 200, WORLD_H + 200);
+
+  // Yard
+  const minY = Math.min(...rooms.map(r => r.y));
+  const maxBot = Math.max(...rooms.map(r => r.y + r.h));
+  ctx.save();
+  const gx = rooms[0].x - 300, gy = minY - 80;
+  const gw = rooms.reduce((s, r) => s + r.w, 0) + 600, gh = maxBot - minY + 160;
+  ctx.shadowColor = 'rgba(0,0,0,0.25)';
+  ctx.shadowBlur = 20;
+  ctx.shadowOffsetY = 6;
+  ctx.fillStyle = '#3a7d32';
+  ctx.beginPath();
+  ctx.roundRect(gx, gy, gw, gh, 16);
+  ctx.fill();
+  ctx.restore();
+
+  // Room floors
+  for (const r of rooms) {
+    ctx.fillStyle = r.color;
+    ctx.globalAlpha = r.unlocked ? 1 : 0.2;
+    ctx.fillRect(r.x, r.y, r.w, r.h);
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+    ctx.lineWidth = 1;
+    for (let lx = r.x + 40; lx < r.x + r.w; lx += 60) {
+      ctx.beginPath(); ctx.moveTo(lx, r.y); ctx.lineTo(lx, r.y + r.h); ctx.stroke();
+    }
+  }
+
+  // Milestone indicators (every 100m, 1m = 60px floor-line interval)
+  const firstX = rooms[0].x;
+  const lastX = rooms[rooms.length - 1].x + rooms[rooms.length - 1].w;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.font = 'bold 22px Arial';
+  ctx.lineWidth = 4;
+  for (let mx = firstX + 6000; mx < lastX; mx += 6000) {
+    const dist = Math.round((mx - firstX) / 60);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.fillText(dist + 'm', mx, minY);
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.beginPath(); ctx.moveTo(mx, -50); ctx.lineTo(mx, WORLD_H + 50); ctx.stroke();
+  }
+
+  // Foliage (per-room + start area)
+  const allFol = [...startFoliage];
+  for (const r of rooms) allFol.push(...r.foliage);
+  for (const f of allFol) {
+    if (f.type === 'tree') {
+      ctx.strokeStyle = '#1b5e20';
+      ctx.lineWidth = 2;
+      ctx.fillStyle = 'rgba(0,0,0,0.1)';
+      ctx.beginPath(); ctx.arc(f.x + 3, f.y + 3, f.r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#2e7d32';
+      ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = 'rgba(0,0,0,0.12)';
+      ctx.beginPath(); ctx.arc(f.x - f.r * 0.25, f.y - f.r * 0.25, f.r * 0.4, 0, Math.PI * 2); ctx.fill();
+    } else if (f.type === 'bush') {
+      ctx.strokeStyle = '#1b5e20';
+      ctx.lineWidth = 1.5;
+      ctx.fillStyle = '#388e3c';
+      ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+    } else if (f.type === 'flower') {
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.lineWidth = 1;
+      ctx.fillStyle = f.color;
+      ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#ffeb3b';
+      ctx.beginPath(); ctx.arc(f.x, f.y, f.r * 0.4, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // Upgrade pedestals
+  for (const r of rooms) {
+    if (!r.upgrade || r.upgrade.purchased) continue;
+    if (!r.unlocked) continue;
+    const u = r.upgrade;
+    const bob = Math.sin(gameTime * 3) * 3;
+    // Base
+    ctx.fillStyle = '#5d4037';
+    ctx.beginPath();
+    ctx.roundRect(u.px - 14, u.py + bob - 8, 28, 16, 4);
+    ctx.fill();
+    ctx.fillStyle = '#795548';
+    ctx.beginPath();
+    ctx.roundRect(u.px - 10, u.py + bob - 12, 20, 8, 2);
+    ctx.fill();
+    // Glow
+    const glow = ctx.createRadialGradient(u.px, u.py + bob, 2, u.px, u.py + bob, 22);
+    const glowColor = u.type === 'Armory' ? 'rgba(79,195,247,0.4)' : u.type === 'Forge' ? 'rgba(232,168,216,0.4)' : 'rgba(255,152,0,0.4)';
+    glow.addColorStop(0, glowColor);
+    glow.addColorStop(1, 'transparent');
+    ctx.fillStyle = glow;
+    ctx.beginPath(); ctx.arc(u.px, u.py + bob, 22, 0, Math.PI * 2); ctx.fill();
+    // Item
+    if (u.type === 'Armory') {
+      ctx.fillStyle = '#4FC3F7';
+      ctx.fillRect(u.px - 8, u.py + bob - 3, 16, 6);
+      ctx.fillRect(u.px - 2, u.py + bob - 7, 4, 14);
+    } else if (u.type === 'Forge') {
+      ctx.strokeStyle = '#e8a8d8';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(u.px - 6, u.py + bob + 6);
+      ctx.lineTo(u.px + 4, u.py + bob - 6);
+      ctx.stroke();
+      ctx.fillStyle = '#e8a8d8';
+      ctx.fillRect(u.px + 1, u.py + bob - 8, 3, 5);
+    } else if (u.type === 'Workshop') {
+      ctx.strokeStyle = '#ff9800';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 8; i++) {
+        const a = (i / 8) * Math.PI * 2;
+        const r = i % 2 === 0 ? 7 : 4;
+        ctx.beginPath();
+        ctx.moveTo(u.px + Math.cos(a) * 3, u.py + bob + Math.sin(a) * 3);
+        ctx.lineTo(u.px + Math.cos(a) * r, u.py + bob + Math.sin(a) * r);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#ff9800';
+      ctx.beginPath(); ctx.arc(u.px, u.py + bob, 3, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // Food items
+  for (const r of rooms) {
+    if (!r.unlocked || !r.food) continue;
+    for (const item of r.food) {
+      if (item.consumed) continue;
+      const bob = Math.sin(gameTime * 2 + item.x) * 2;
+      ctx.fillStyle = '#e8a87c';
+      ctx.beginPath(); ctx.arc(item.x, item.y + bob, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#8d6e63';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(item.x, item.y + bob, 6, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(255,255,255,0.3)';
+      ctx.beginPath(); ctx.arc(item.x - 2, item.y + bob - 2, 2, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // Room labels (unlocked)
+  for (const r of rooms) {
+    if (r.unlocked) {
+      ctx.fillStyle = 'rgba(0,0,0,0.15)';
+      ctx.font = '14px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(r.name, r.x + r.w / 2, r.y + r.h / 2 + 50);
+
+    }
+  }
+
+  // Walls
+  ctx.strokeStyle = '#5a4a3a';
+  ctx.lineWidth = 7;
+  ctx.shadowColor = 'rgba(0,0,0,0.25)';
+  ctx.shadowBlur = 4;
+  ctx.beginPath();
+  for (const w of walls) { ctx.moveTo(w.x1, w.y1); ctx.lineTo(w.x2, w.y2); }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Door indicators (unlocked)
+  for (let i = 0; i < rooms.length - 1; i++) {
+    if (rooms[i + 1].unlocked) {
+      const wx = rooms[i].x + rooms[i].w;
+      const midY = (rooms[i].y + rooms[i].h / 2 + rooms[i + 1].y + rooms[i + 1].h / 2) / 2;
+      ctx.strokeStyle = 'rgba(90,74,58,0.25)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(wx, midY - DOOR_HD);
+      ctx.lineTo(wx, midY + DOOR_HD);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+
+  // Locked door overlays
+  for (let i = 0; i < rooms.length - 1; i++) {
+    const next = rooms[i + 1];
+    if (rooms[i].unlocked && !next.unlocked) {
+      const wx = rooms[i].x + rooms[i].w;
+      const midY = (rooms[i].y + rooms[i].h / 2 + rooms[i + 1].y + rooms[i + 1].h / 2) / 2;
+      const canAfford = player.coins >= next.cost;
+      ctx.fillStyle = canAfford ? 'rgba(30, 180, 30, 0.55)' : 'rgba(180, 30, 30, 0.55)';
+      ctx.fillRect(wx - 6, midY - DOOR_HD, 12, DOOR_W);
+      ctx.strokeStyle = canAfford ? '#22cc22' : '#cc2222';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(wx - 6, midY - DOOR_HD);
+      ctx.lineTo(wx + 6, midY + DOOR_HD);
+      ctx.moveTo(wx + 6, midY - DOOR_HD);
+      ctx.lineTo(wx - 6, midY + DOOR_HD);
+      ctx.stroke();
+      ctx.fillStyle = '#ffd700';
+      ctx.font = 'bold 16px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(next.cost + '\u00A2', wx, midY);
+    }
+  }
+
+  // Locked room overlays
+  for (const r of rooms) {
+    if (!r.unlocked) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fillRect(r.x, r.y, r.w, r.h);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.font = 'bold 28px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('LOCKED', r.x + r.w / 2, r.y + r.h / 2);
+      ctx.fillStyle = 'rgba(255,215,0,0.4)';
+      ctx.font = '14px Arial';
+      ctx.fillText(r.cost + ' coins', r.x + r.w / 2, r.y + r.h / 2 + 35);
+    }
+  }
+
+  // Coins
+  for (const c of coinItems) {
+    const bob = Math.sin(c.bob) * 2;
+    ctx.fillStyle = 'rgba(255,215,0,0.15)';
+    ctx.beginPath();
+    ctx.arc(c.x, c.y + bob, c.r + 7, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(c.x, c.y + bob, c.r, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#ffd700';
+    ctx.beginPath();
+    ctx.arc(c.x, c.y + bob, c.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#ffec80';
+    ctx.beginPath();
+    ctx.arc(c.x - 2, c.y + bob - 2, c.r * 0.4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Zombies
+  for (const z of zombies) {
+    const flash = z.hitFlash > 0;
+    ctx.fillStyle = flash ? '#fff' : z.color;
+    ctx.shadowColor = 'rgba(0,0,0,0.2)';
+    ctx.shadowBlur = 6;
+    ctx.beginPath();
+    ctx.arc(z.x, z.y, z.r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    if (!flash) {
+      ctx.fillStyle = z.dark;
+      ctx.beginPath();
+      ctx.arc(z.x - 2, z.y - 2, z.r * 0.6, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = flash ? '#666' : z.eye;
+    const eo = z.r * 0.25;
+    ctx.fillRect(z.x - eo - 2, z.y - eo, 3, 3);
+    ctx.fillRect(z.x + eo - 1, z.y - eo, 3, 3);
+    ctx.fillStyle = flash ? '#888' : '#2a2a2a';
+    ctx.fillRect(z.x - 3, z.y + 2, 6, 2);
+    if (z.hp < z.maxHp) {
+      const bw = z.r * 2;
+      ctx.fillStyle = 'rgba(0,0,0,0.4)';
+      ctx.fillRect(z.x - bw / 2, z.y - z.r - 8, bw, 4);
+      ctx.fillStyle = '#44cc44';
+      ctx.fillRect(z.x - bw / 2, z.y - z.r - 8, bw * (z.hp / z.maxHp), 4);
+    }
+  }
+
+  // Bullets
+  for (const b of bullets) {
+    ctx.fillStyle = '#ffeb3b';
+    ctx.shadowColor = 'rgba(255,235,59,0.5)';
+    ctx.shadowBlur = 10;
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, BR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+  }
+
+  // Player
+  const isHurt = player.hurtFlash > 0;
+  ctx.shadowColor = 'rgba(0,0,0,0.2)';
+  ctx.shadowBlur = 8;
+  ctx.fillStyle = isHurt ? '#ff6666' : '#4FC3F7';
+  ctx.beginPath();
+  ctx.arc(player.x, player.y, player.r, 0, Math.PI * 2);
+  ctx.fill();
+  if (isHurt) {
+    ctx.fillStyle = 'rgba(255,100,100,0.3)';
+    ctx.beginPath();
+    ctx.arc(player.x, player.y, player.r + 4, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.fillStyle = isHurt ? '#ff8888' : '#81d4fa';
+  ctx.beginPath();
+  ctx.arc(player.x - 3, player.y - 3, player.r * 0.45, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  // Gun
+  ctx.save();
+  ctx.translate(player.x, player.y);
+  ctx.rotate(player.gunAngle);
+  ctx.fillStyle = '#555';
+  ctx.fillRect(6, -3, 20, 6);
+  ctx.fillStyle = '#888';
+  ctx.fillRect(20, -4, 8, 8);
+  ctx.restore();
+
+  // Sword
+  if (player.hasSword) {
+    const swingT = player.swordSwing > 0 ? player.swordSwing / 0.25 : 0;
+    const swordLen = 40;
+    const swordAngle = player.gunAngle - 0.5 + swingT * 1.0;
+    const sx = player.x + Math.cos(swordAngle) * (player.r + 5 + swordLen);
+    const sy = player.y + Math.sin(swordAngle) * (player.r + 5 + swordLen);
+    ctx.strokeStyle = swingT > 0 ? '#fff' : '#ccc';
+    ctx.lineWidth = 4;
+    ctx.shadowColor = swingT > 0 ? 'rgba(255,255,255,0.5)' : 'transparent';
+    ctx.shadowBlur = swingT > 0 ? 10 : 0;
+    ctx.beginPath();
+    ctx.moveTo(player.x + Math.cos(swordAngle) * player.r, player.y + Math.sin(swordAngle) * player.r);
+    ctx.lineTo(sx, sy);
+    ctx.stroke();
+    ctx.shadowBlur = 0;
+    ctx.fillStyle = '#8a6b3a';
+    ctx.fillRect(player.x + Math.cos(swordAngle) * (player.r + 3) - 2, player.y + Math.sin(swordAngle) * (player.r + 3) - 5, 4, 10);
+  }
+
+  const hpw = 30;
+  ctx.fillStyle = 'rgba(0,0,0,0.5)';
+  ctx.fillRect(player.x - hpw / 2, player.y - player.r - 10, hpw, 4);
+  ctx.fillStyle = player.health > 50 ? '#44cc44' : player.health > 25 ? '#ffaa00' : '#ff4444';
+  ctx.fillRect(player.x - hpw / 2, player.y - player.r - 10, hpw * (player.health / player.maxHealth), 4);
+
+  // Particles
+  for (const p of particles) {
+    const alpha = clamp(p.life / p.maxLife, 0, 1);
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r * alpha, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  ctx.restore();
+
+  const hpPct = player.health / player.maxHealth;
+  if (hpPct < 0.3) {
+    const alpha = (0.3 - hpPct) / 0.3 * 0.5;
+    const grad = ctx.createRadialGradient(W/2, H/2, H*0.15, W/2, H/2, Math.max(W, H)*0.6);
+    grad.addColorStop(0, 'transparent');
+    grad.addColorStop(1, 'rgba(0,0,0,' + alpha + ')');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, W, H);
+  }
+}
+
+// ==================== HUD ====================
+function updateHUD() {
+  document.getElementById('hud-hp').textContent = Math.round(player.health);
+  document.getElementById('hud-coins').textContent = player.coins;
+  document.getElementById('hud-kills').textContent = kills;
+
+  let currentRoom = 'Outside';
+  for (const r of rooms) {
+    if (!r.unlocked) continue;
+    if (player.x >= r.x && player.x <= r.x + r.w && player.y >= r.y && player.y <= r.y + r.h) {
+      currentRoom = r.name;
+      break;
+    }
+  }
+  document.getElementById('hud-room').textContent = currentRoom;
+
+  const we = document.getElementById('hud-weapon');
+  const icons = [];
+  if (player.gunUpgraded) icons.push('\u{1F52B}');
+  else icons.push('\u{1F52B}');
+  if (player.hasSword) icons.push('\u{1F5E1}\u{FE0F}');
+  if (player.bulletPierce) icons.push('\u{1F4A5}');
+  we.textContent = icons.join(' ');
+}
+
+// ==================== GAME OVER ====================
+function showGameOver() {
+  document.getElementById('game-over').style.display = 'flex';
+  document.getElementById('final-kills').textContent = kills;
+  document.getElementById('final-coins').textContent = totalCoins;
+  let count = 0;
+  for (const r of rooms) if (r.unlocked) count++;
+  document.getElementById('final-rooms').textContent = count;
+}
+
+document.getElementById('game-over').addEventListener('click', restartGame);
+
+function restartGame() {
+  initGame();
+}
+
+// ==================== GAME LOOP ====================
+let lastTime = 0;
+
+function loop(time) {
+  const dt = Math.min((time - lastTime) / 1000, 0.05);
+  lastTime = time;
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ==================== START ====================
+initGame();
+requestAnimationFrame((time) => {
+  lastTime = time;
+  loop(time);
+});
+</script>
+</body>
+</html>
