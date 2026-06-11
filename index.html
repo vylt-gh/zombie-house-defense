@@ -83,14 +83,14 @@ let W, H;
 function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
+  if (!rooms) isVertical = H > W;
 }
 resize();
 window.addEventListener('resize', resize);
 
 // ==================== CONFIG ====================
-const ROOM_H = 460;
-const WORLD_H = 700;
-const ROOM_Y = (WORLD_H - ROOM_H) / 2;
+let isVertical = window.innerHeight > window.innerWidth;
+
 const PR = 16;
 const PS = 240;
 const ZR = 14;
@@ -245,18 +245,19 @@ const ROOM_EFFECTS = {
 };
 
 // ==================== INFINITE ROOMS ====================
-let rooms, walls, WORLD_W;
+let rooms, walls, WORLD_W, WORLD_H;
 let startFoliage = [];
 
-function generateRooms(startIndex, count, startX) {
+function generateRooms(startIndex, count, startPos) {
   const newRooms = [];
-  let x = startX;
+  let pos = startPos;
   for (let i = 0; i < count; i++) {
     const idx = startIndex + i;
     const scale = 1 + (idx / 30) * 0.5;
     const w = Math.floor(((Math.random() < 0.5 ? 480 : 520) + (Math.random() * 200 | 0)) * scale);
     const h = Math.floor((420 + (Math.random() * 80 | 0)) * scale);
-    const y = (WORLD_H - h) / 2 + (Math.random() - 0.5) * 20;
+    const x = isVertical ? (W - w) / 2 + (Math.random() - 0.5) * 20 : pos;
+    const y = isVertical ? pos : (H - h) / 2 + (Math.random() - 0.5) * 20;
     const name = idx === 0 ? 'Entrance' : ROOM_NAMES[randInt(0, ROOM_NAMES.length - 1)];
     newRooms.push({
       index: idx, x, y, w, h, name,
@@ -314,17 +315,23 @@ function generateRooms(startIndex, count, startX) {
         });
       }
     }
-    x += w;
+    pos += isVertical ? h : w;
   }
-  return { rooms: newRooms, nextX: x };
+  return { rooms: newRooms, nextPos: pos };
 }
 
 function ensureRooms() {
   const lastUnlockedIdx = rooms.some(r => r.unlocked) ? rooms.filter(r => r.unlocked).length - 1 : 0;
   if (lastUnlockedIdx >= rooms.length - 3) {
-    const result = generateRooms(rooms.length, 5, rooms[rooms.length - 1].x + rooms[rooms.length - 1].w);
+    const last = rooms[rooms.length - 1];
+    const nextPos = isVertical ? last.y + last.h : last.x + last.w;
+    const result = generateRooms(rooms.length, 5, nextPos);
     rooms.push(...result.rooms);
-    WORLD_W = rooms.reduce((s, r) => s + r.w, 0) + 700;
+    if (isVertical) {
+      WORLD_H = rooms.reduce((s, r) => s + r.h, 0) + 700;
+    } else {
+      WORLD_W = rooms.reduce((s, r) => s + r.w, 0) + 700;
+    }
     walls = generateWalls(rooms);
   }
 }
@@ -336,20 +343,39 @@ function generateWalls(rooms) {
     walls.push({ x1: r.x, y1: r.y + r.h, x2: r.x + r.w, y2: r.y + r.h });
   }
   const f = rooms[0];
-  walls.push({ x1: f.x, y1: f.y, x2: f.x, y2: f.y + f.h });
-  const l = rooms[rooms.length - 1];
-  walls.push({ x1: l.x + l.w, y1: l.y, x2: l.x + l.w, y2: l.y + l.h });
+  if (isVertical) {
+    walls.push({ x1: f.x, y1: f.y - 10, x2: f.x + f.w, y2: f.y - 10 });
+    const l = rooms[rooms.length - 1];
+    walls.push({ x1: l.x, y1: l.y + l.h + 10, x2: l.x + l.w, y2: l.y + l.h + 10 });
+  } else {
+    walls.push({ x1: f.x, y1: f.y, x2: f.x, y2: f.y + f.h });
+    const l = rooms[rooms.length - 1];
+    walls.push({ x1: l.x + l.w, y1: l.y, x2: l.x + l.w, y2: l.y + l.h });
+  }
   for (let i = 0; i < rooms.length - 1; i++) {
     const a = rooms[i], b = rooms[i + 1];
-    const wx = a.x + a.w;
-    const topY = Math.min(a.y, b.y);
-    const botY = Math.max(a.y + a.h, b.y + b.h);
-    const midY = (a.y + a.h / 2 + b.y + b.h / 2) / 2;
-    if (b.unlocked) {
-      walls.push({ x1: wx, y1: topY, x2: wx, y2: midY - DOOR_HD });
-      walls.push({ x1: wx, y1: midY + DOOR_HD, x2: wx, y2: botY });
+    if (isVertical) {
+      const wy = a.y + a.h;
+      const leftX = Math.min(a.x, b.x);
+      const rightX = Math.max(a.x + a.w, b.x + b.w);
+      const midX = (a.x + a.w / 2 + b.x + b.w / 2) / 2;
+      if (b.unlocked) {
+        walls.push({ x1: leftX, y1: wy, x2: midX - DOOR_HD, y2: wy });
+        walls.push({ x1: midX + DOOR_HD, y1: wy, x2: rightX, y2: wy });
+      } else {
+        walls.push({ x1: leftX, y1: wy, x2: rightX, y2: wy });
+      }
     } else {
-      walls.push({ x1: wx, y1: topY, x2: wx, y2: botY });
+      const wx = a.x + a.w;
+      const topY = Math.min(a.y, b.y);
+      const botY = Math.max(a.y + a.h, b.y + b.h);
+      const midY = (a.y + a.h / 2 + b.y + b.h / 2) / 2;
+      if (b.unlocked) {
+        walls.push({ x1: wx, y1: topY, x2: wx, y2: midY - DOOR_HD });
+        walls.push({ x1: wx, y1: midY + DOOR_HD, x2: wx, y2: botY });
+      } else {
+        walls.push({ x1: wx, y1: topY, x2: wx, y2: botY });
+      }
     }
   }
   return walls;
@@ -438,11 +464,14 @@ canvas.addEventListener('mouseleave', e => { mouseDown = false; });
 canvas.addEventListener('mousemove', e => { mouseX = e.clientX; mouseY = e.clientY; });
 
 function initGame() {
-  const result = generateRooms(0, 6, 350);
+  isVertical = H > W;
+  const startPos = isVertical ? 50 : 350;
+  const result = generateRooms(0, 6, startPos);
   rooms = result.rooms;
   rooms[0].unlocked = true;
   walls = generateWalls(rooms);
-  WORLD_W = rooms.reduce((s, r) => s + r.w, 0) + 700;
+  WORLD_W = isVertical ? W + 300 : rooms.reduce((s, r) => s + r.w, 0) + 700;
+  WORLD_H = isVertical ? rooms.reduce((s, r) => s + r.h, 0) + 300 : H + 200;
   gameOver = false;
   gameTime = 0;
   kills = 0;
@@ -476,15 +505,17 @@ function initGame() {
   document.getElementById('banner').classList.remove('show');
   document.getElementById('unlock-prompt').style.display = 'none';
   document.getElementById('game-over').style.display = 'none';
-  // Start-area foliage (left of entrance, generated once)
+  // Start-area foliage (left of entrance for H, above for V)
   startFoliage = [];
   const minY = Math.min(...rooms.map(r => r.y));
   const maxBot = Math.max(...rooms.map(r => r.y + r.h));
+  const minX = Math.min(...rooms.map(r => r.x));
+  const maxRight = Math.max(...rooms.map(r => r.x + r.w));
   for (let i = 0; i < 12; i++) {
     const t = Math.random();
     startFoliage.push({
-      x: rand(rooms[0].x - 280, rooms[0].x - 20),
-      y: rand(minY - 40, maxBot + 40),
+      x: isVertical ? rand(minX - 40, maxRight + 40) : rand(rooms[0].x - 280, rooms[0].x - 20),
+      y: isVertical ? rand(rooms[0].y - 280, rooms[0].y - 20) : rand(minY - 40, maxBot + 40),
       type: t < 0.25 ? 'tree' : t < 0.5 ? 'bush' : 'flower',
       r: t < 0.25 ? rand(14, 24) : rand(3, 10),
       color: t >= 0.5 ? ['#e91e63','#ff9800','#9c27b0','#f44336','#ffeb3b'][randInt(0, 4)] : undefined,
@@ -537,8 +568,14 @@ function spawnZombie() {
   if (unlocked.length === 0) return;
   const room = unlocked[unlocked.length - 1];
   const vt = pickZombieType();
-  let x = rand(room.x + room.w * 0.5, room.x + room.w - 20);
-  let y = rand(room.y + 30, room.y + room.h - 30);
+  let x, y;
+  if (isVertical) {
+    x = rand(room.x + 30, room.x + room.w - 30);
+    y = rand(room.y + room.h * 0.5, room.y + room.h - 20);
+  } else {
+    x = rand(room.x + room.w * 0.5, room.x + room.w - 20);
+    y = rand(room.y + 30, room.y + room.h - 30);
+  }
   if (collidesAny(x, y, vt.r, walls)) {
     x = room.x + room.w * 0.7 + rand(-20, 20);
     y = room.y + room.h * 0.5 + rand(-30, 30);
@@ -556,8 +593,14 @@ function spawnZombie() {
 function spawnZombieFromLeft() {
   const f = rooms[0];
   const vt = pickZombieType();
-  let x = rand(f.x + 20, f.x + 80);
-  let y = rand(f.y + 30, f.y + f.h - 30);
+  let x, y;
+  if (isVertical) {
+    x = rand(f.x + 30, f.x + f.w - 30);
+    y = rand(f.y + 20, f.y + 80);
+  } else {
+    x = rand(f.x + 20, f.x + 80);
+    y = rand(f.y + 30, f.y + f.h - 30);
+  }
   if (collidesAny(x, y, vt.r, walls)) { x = f.x + 50; y = f.y + f.h * 0.5; }
   const baseHp = gameTime > 70 ? 3 : gameTime > 35 ? 2 : 1;
   const hp = Math.max(1, Math.round(baseHp * vt.hpM));
@@ -705,8 +748,14 @@ function tryEatFood() {
 function findNearestLockedDoor() {
   for (let i = 0; i < rooms.length - 1; i++) {
     if (rooms[i].unlocked && !rooms[i + 1].unlocked) {
-      const dx = rooms[i].x + rooms[i].w;
-      const dy = (rooms[i].y + rooms[i].h / 2 + rooms[i + 1].y + rooms[i + 1].h / 2) / 2;
+      let dx, dy;
+      if (isVertical) {
+        dx = (rooms[i].x + rooms[i].w / 2 + rooms[i + 1].x + rooms[i + 1].w / 2) / 2;
+        dy = rooms[i].y + rooms[i].h;
+      } else {
+        dx = rooms[i].x + rooms[i].w;
+        dy = (rooms[i].y + rooms[i].h / 2 + rooms[i + 1].y + rooms[i + 1].h / 2) / 2;
+      }
       if (Math.hypot(player.x - dx, player.y - dy) < DOOR_RANGE) {
         return { x: dx, y: dy, room: rooms[i + 1] };
       }
@@ -1067,14 +1116,21 @@ function render() {
 
   // Background
   ctx.fillStyle = '#87CEEB';
-  ctx.fillRect(-100, -100, WORLD_W + 200, WORLD_H + 200);
+  ctx.fillRect(-100, -100, (WORLD_W || W) + 200, (WORLD_H || H) + 200);
 
   // Yard
-  const minY = Math.min(...rooms.map(r => r.y));
-  const maxBot = Math.max(...rooms.map(r => r.y + r.h));
-  ctx.save();
-  const gx = rooms[0].x - 300, gy = minY - 80;
-  const gw = rooms.reduce((s, r) => s + r.w, 0) + 600, gh = maxBot - minY + 160;
+  const firstX = isVertical ? Math.min(...rooms.map(r => r.x)) : rooms[0].x - 300;
+  const firstY = isVertical ? rooms[0].y - 300 : Math.min(...rooms.map(r => r.y)) - 80;
+  const totDim = isVertical
+    ? rooms.reduce((s, r) => s + r.h, 0) + 600
+    : rooms.reduce((s, r) => s + r.w, 0) + 600;
+  const perpDim = isVertical
+    ? Math.max(...rooms.map(r => r.x + r.w)) - Math.min(...rooms.map(r => r.x)) + 160
+    : Math.max(...rooms.map(r => r.y + r.h)) - Math.min(...rooms.map(r => r.y)) + 160;
+  const gx = isVertical ? firstX - 80 : firstX;
+  const gy = isVertical ? firstY : firstY;
+  const gw = isVertical ? perpDim : totDim;
+  const gh = isVertical ? totDim : perpDim;
   ctx.shadowColor = 'rgba(0,0,0,0.25)';
   ctx.shadowBlur = 20;
   ctx.shadowOffsetY = 6;
@@ -1097,19 +1153,31 @@ function render() {
     }
   }
 
-  // Milestone indicators (every 100m, 1m = 60px floor-line interval)
-  const firstX = rooms[0].x;
-  const lastX = rooms[rooms.length - 1].x + rooms[rooms.length - 1].w;
+  // Milestone indicators (every 100m, 1m = 60px)
+  const firstMs = isVertical ? rooms[0].y : rooms[0].x;
+  const lastMs = isVertical
+    ? rooms[rooms.length - 1].y + rooms[rooms.length - 1].h
+    : rooms[rooms.length - 1].x + rooms[rooms.length - 1].w;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
   ctx.font = 'bold 22px Arial';
   ctx.lineWidth = 4;
-  for (let mx = firstX + 6000; mx < lastX; mx += 6000) {
-    const dist = Math.round((mx - firstX) / 60);
-    ctx.fillStyle = 'rgba(255,255,255,0.5)';
-    ctx.fillText(dist + 'm', mx, minY);
-    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
-    ctx.beginPath(); ctx.moveTo(mx, -50); ctx.lineTo(mx, WORLD_H + 50); ctx.stroke();
+  if (isVertical) {
+    for (let my = firstMs + 6000; my < lastMs; my += 6000) {
+      const dist = Math.round((my - firstMs) / 60);
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText(dist + 'm', rooms[0].x + rooms[0].w / 2, my);
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctx.beginPath(); ctx.moveTo(rooms[0].x - 200, my); ctx.lineTo(rooms[0].x + rooms[0].w + 200, my); ctx.stroke();
+    }
+  } else {
+    for (let mx = firstMs + 6000; mx < lastMs; mx += 6000) {
+      const dist = Math.round((mx - firstMs) / 60);
+      ctx.fillStyle = 'rgba(255,255,255,0.5)';
+      ctx.fillText(dist + 'm', mx, Math.min(...rooms.map(r => r.y)));
+      ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+      ctx.beginPath(); ctx.moveTo(mx, -50); ctx.lineTo(mx, WORLD_H + 50); ctx.stroke();
+    }
   }
 
   // Foliage (per-room + start area)
@@ -1233,16 +1301,29 @@ function render() {
   // Door indicators (unlocked)
   for (let i = 0; i < rooms.length - 1; i++) {
     if (rooms[i + 1].unlocked) {
-      const wx = rooms[i].x + rooms[i].w;
-      const midY = (rooms[i].y + rooms[i].h / 2 + rooms[i + 1].y + rooms[i + 1].h / 2) / 2;
-      ctx.strokeStyle = 'rgba(90,74,58,0.25)';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([4, 4]);
-      ctx.beginPath();
-      ctx.moveTo(wx, midY - DOOR_HD);
-      ctx.lineTo(wx, midY + DOOR_HD);
-      ctx.stroke();
-      ctx.setLineDash([]);
+      if (isVertical) {
+        const wy = rooms[i].y + rooms[i].h;
+        const midX = (rooms[i].x + rooms[i].w / 2 + rooms[i + 1].x + rooms[i + 1].w / 2) / 2;
+        ctx.strokeStyle = 'rgba(90,74,58,0.25)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(midX - DOOR_HD, wy);
+        ctx.lineTo(midX + DOOR_HD, wy);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      } else {
+        const wx = rooms[i].x + rooms[i].w;
+        const midY = (rooms[i].y + rooms[i].h / 2 + rooms[i + 1].y + rooms[i + 1].h / 2) / 2;
+        ctx.strokeStyle = 'rgba(90,74,58,0.25)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(wx, midY - DOOR_HD);
+        ctx.lineTo(wx, midY + DOOR_HD);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
     }
   }
 
@@ -1250,19 +1331,34 @@ function render() {
   for (let i = 0; i < rooms.length - 1; i++) {
     const next = rooms[i + 1];
     if (rooms[i].unlocked && !next.unlocked) {
-      const wx = rooms[i].x + rooms[i].w;
-      const midY = (rooms[i].y + rooms[i].h / 2 + rooms[i + 1].y + rooms[i + 1].h / 2) / 2;
       const canAfford = player.coins >= next.cost;
-      ctx.fillStyle = canAfford ? 'rgba(30, 180, 30, 0.55)' : 'rgba(180, 30, 30, 0.55)';
-      ctx.fillRect(wx - 6, midY - DOOR_HD, 12, DOOR_W);
-      ctx.strokeStyle = canAfford ? '#22cc22' : '#cc2222';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(wx - 6, midY - DOOR_HD);
-      ctx.lineTo(wx + 6, midY + DOOR_HD);
-      ctx.moveTo(wx + 6, midY - DOOR_HD);
-      ctx.lineTo(wx - 6, midY + DOOR_HD);
-      ctx.stroke();
+      if (isVertical) {
+        const wy = rooms[i].y + rooms[i].h;
+        const midX = (rooms[i].x + rooms[i].w / 2 + rooms[i + 1].x + rooms[i + 1].w / 2) / 2;
+        ctx.fillStyle = canAfford ? 'rgba(30, 180, 30, 0.55)' : 'rgba(180, 30, 30, 0.55)';
+        ctx.fillRect(midX - DOOR_HD, wy - 6, DOOR_W, 12);
+        ctx.strokeStyle = canAfford ? '#22cc22' : '#cc2222';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(midX - DOOR_HD, wy - 6);
+        ctx.lineTo(midX + DOOR_HD, wy + 6);
+        ctx.moveTo(midX + DOOR_HD, wy - 6);
+        ctx.lineTo(midX - DOOR_HD, wy + 6);
+        ctx.stroke();
+      } else {
+        const wx = rooms[i].x + rooms[i].w;
+        const midY = (rooms[i].y + rooms[i].h / 2 + rooms[i + 1].y + rooms[i + 1].h / 2) / 2;
+        ctx.fillStyle = canAfford ? 'rgba(30, 180, 30, 0.55)' : 'rgba(180, 30, 30, 0.55)';
+        ctx.fillRect(wx - 6, midY - DOOR_HD, 12, DOOR_W);
+        ctx.strokeStyle = canAfford ? '#22cc22' : '#cc2222';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(wx - 6, midY - DOOR_HD);
+        ctx.lineTo(wx + 6, midY + DOOR_HD);
+        ctx.moveTo(wx + 6, midY - DOOR_HD);
+        ctx.lineTo(wx - 6, midY + DOOR_HD);
+        ctx.stroke();
+      }
       ctx.fillStyle = '#ffd700';
       ctx.font = 'bold 16px Arial';
       ctx.textAlign = 'center';
