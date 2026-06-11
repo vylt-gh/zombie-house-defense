@@ -468,7 +468,7 @@ let spawnTimer, spawnInterval, difficultyTimer, leftSpawnTimer;
 let player, camera;
 let zombies, bullets, coinItems, particles;
 let mouseDown, mouseX, mouseY;
-let touch = {leftId:-1,rightId:-1,ax:0,ay:0,active:false,moveX:0,moveY:0,rx:0,ry:0,interactId:-1};
+let touch = {leftId:-1,rightId:-1,ax:0,ay:0,active:false,moveX:0,moveY:0,rx:0,ry:0,rax:0,ray:0,ractive:false,rmoveX:0,rmoveY:0,interactId:-1};
 let unlockDoorInfo;
 let upgradeInfo;
 let foodInfo;
@@ -534,8 +534,8 @@ canvas.addEventListener('touchstart', e => {
   e.preventDefault();
   for (const t of e.changedTouches) {
     const ibt = H - 90;
-    const inJoystick = t.clientY >= ibt - 50 && t.clientX < 140;
     if (settings.aimMode === 'screenwide') {
+      const inJoystick = t.clientY >= ibt - 50 && t.clientX < 140;
       if (inJoystick && touch.leftId < 0) {
         touch.leftId = t.identifier;
         touch.ax = t.clientX;
@@ -555,22 +555,25 @@ canvas.addEventListener('touchstart', e => {
         if (!tryUnlock() && !tryPurchaseUpgrade()) tryEatFood();
       }
     } else {
-      const half = W / 2;
-      if (t.clientX < half && t.clientY < ibt && touch.leftId < 0) {
+      const jsArea = 140;
+      const inLeft = t.clientX < jsArea && t.clientY >= ibt - 50;
+      const inRight = t.clientX > W - jsArea && t.clientY >= ibt - 50;
+      if (inLeft && touch.leftId < 0) {
         touch.leftId = t.identifier;
         touch.ax = t.clientX;
         touch.ay = t.clientY;
         touch.moveX = 0;
         touch.moveY = 0;
         touch.active = true;
-      } else if (t.clientX >= half && t.clientY < ibt && touch.rightId < 0) {
+      } else if (inRight && touch.rightId < 0) {
         touch.rightId = t.identifier;
-        touch.rx = t.clientX;
-        touch.ry = t.clientY;
-        mouseX = t.clientX;
-        mouseY = t.clientY;
+        touch.rax = t.clientX;
+        touch.ray = t.clientY;
+        touch.rmoveX = 0;
+        touch.rmoveY = 0;
+        touch.ractive = true;
         mouseDown = true;
-      } else if (t.clientY >= ibt && touch.interactId < 0) {
+      } else if (t.clientY >= ibt && touch.interactId < 0 && !inLeft && !inRight) {
         touch.interactId = t.identifier;
         if (!tryUnlock() && !tryPurchaseUpgrade()) tryEatFood();
       }
@@ -584,10 +587,15 @@ canvas.addEventListener('touchmove', e => {
       touch.moveX = t.clientX - touch.ax;
       touch.moveY = t.clientY - touch.ay;
     } else if (t.identifier === touch.rightId) {
-      touch.rx = t.clientX;
-      touch.ry = t.clientY;
-      mouseX = t.clientX;
-      mouseY = t.clientY;
+      if (settings.aimMode === 'screenwide') {
+        touch.rx = t.clientX;
+        touch.ry = t.clientY;
+        mouseX = t.clientX;
+        mouseY = t.clientY;
+      } else {
+        touch.rmoveX = t.clientX - touch.rax;
+        touch.rmoveY = t.clientY - touch.ray;
+      }
     }
   }
 }, {passive:false});
@@ -601,6 +609,9 @@ canvas.addEventListener('touchend', e => {
       touch.moveY = 0;
     } else if (t.identifier === touch.rightId) {
       touch.rightId = -1;
+      touch.ractive = false;
+      touch.rmoveX = 0;
+      touch.rmoveY = 0;
       mouseDown = false;
     } else if (t.identifier === touch.interactId) {
       touch.interactId = -1;
@@ -612,8 +623,11 @@ canvas.addEventListener('touchcancel', e => {
   touch.rightId = -1;
   touch.interactId = -1;
   touch.active = false;
+  touch.ractive = false;
   touch.moveX = 0;
   touch.moveY = 0;
+  touch.rmoveX = 0;
+  touch.rmoveY = 0;
   mouseDown = false;
 });
 
@@ -1012,8 +1026,21 @@ function update(dt) {
   }
 
   // Manual aim with arc assist
-  const aimWx = mouseX + camera.x;
-  const aimWy = mouseY + camera.y;
+  let aimWx, aimWy;
+  if (settings.aimMode === 'joystick' && touch.ractive) {
+    const rd = Math.hypot(touch.rmoveX, touch.rmoveY);
+    if (rd > 8) {
+      const aimAngle = Math.atan2(touch.rmoveY, touch.rmoveX);
+      aimWx = player.x + Math.cos(aimAngle) * 500;
+      aimWy = player.y + Math.sin(aimAngle) * 500;
+    } else {
+      aimWx = mouseX + camera.x;
+      aimWy = mouseY + camera.y;
+    }
+  } else {
+    aimWx = mouseX + camera.x;
+    aimWy = mouseY + camera.y;
+  }
   player.gunAngle = Math.atan2(aimWy - player.y, aimWx - player.x);
 
   if (mouseDown && player.fireCD <= 0) {
@@ -1709,25 +1736,25 @@ function render() {
     ctx.fillRect(0, 0, W, H);
   }
 
-  // Virtual joystick
-  if (touch.active || (settings.aimMode === 'screenwide' && !menuActive)) {
-    let jx, jy, active;
-    if (settings.aimMode === 'screenwide') {
-      jx = 80; jy = H - 90; active = touch.active;
-    } else {
-      jx = touch.ax; jy = touch.ay; active = true;
-    }
-    const jd = active ? Math.hypot(touch.moveX, touch.moveY) : 0;
+  // Virtual joysticks
+  const renderStick = (cx, cy, dx, dy, active) => {
+    const jd = Math.hypot(dx, dy);
     const jr = 50;
-    const stickX = jx + Math.min(jd, jr) * (jd > 0 ? touch.moveX / jd : 0);
-    const stickY = jy + Math.min(jd, jr) * (jd > 0 ? touch.moveY / jd : 0);
+    const sx = cx + Math.min(jd, jr) * (jd > 0 ? dx / jd : 0);
+    const sy = cy + Math.min(jd, jr) * (jd > 0 ? dy / jd : 0);
     ctx.fillStyle = 'rgba(255,255,255,0.2)';
-    ctx.beginPath(); ctx.arc(jx, jy, jr, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, jr, 0, Math.PI * 2); ctx.fill();
     ctx.fillStyle = active ? 'rgba(255,255,255,0.5)' : 'rgba(255,255,255,0.25)';
-    ctx.beginPath(); ctx.arc(stickX, stickY, 16, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(sx, sy, 16, 0, Math.PI * 2); ctx.fill();
+  };
+  const ibt = H - 90;
+  if (settings.aimMode === 'joystick') {
+    renderStick(80, ibt, touch.moveX, touch.moveY, touch.active);
+    renderStick(W - 80, ibt, touch.rmoveX, touch.rmoveY, touch.ractive);
+  } else if (!menuActive) {
+    renderStick(80, ibt, touch.moveX, touch.moveY, touch.active);
   }
   // Interact button
-  const ibt = H - 90;
   ctx.fillStyle = 'rgba(255,255,255,0.25)';
   ctx.beginPath(); ctx.arc(W / 2, ibt, 32, 0, Math.PI * 2); ctx.fill();
   ctx.fillStyle = 'rgba(255,255,255,0.7)';
