@@ -31,6 +31,11 @@ canvas{display:block}
 #game-over .stat span{color:#ffd700;font-weight:700}
 #game-over .restart{color:#88ddff;font-size:18px;margin-top:20px;border:2px solid #88ddff;padding:10px 30px;border-radius:8px;transition:.2s}
 #game-over .restart:hover{background:#88ddff22}
+#main-menu{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;justify-content:center;align-items:center;flex-direction:column;pointer-events:auto;cursor:pointer}
+#main-menu h1{color:#fff;font-size:72px;font-weight:800;text-shadow:0 4px 20px rgba(0,0,0,.7),0 0 60px rgba(0,0,0,.4);margin-bottom:8px}
+#main-menu .sub{color:rgba(255,255,255,.7);font-size:22px;margin-top:8px;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+#main-menu .github-link{margin-top:30px;font-size:18px;pointer-events:auto;cursor:pointer;color:#88ddff;text-decoration:none;border:2px solid #88ddff;padding:10px 28px;border-radius:8px;transition:.2s;background:rgba(0,0,0,.3)}
+#main-menu .github-link:hover{background:#88ddff33}
 </style>
 </head>
 <body>
@@ -55,12 +60,17 @@ canvas{display:block}
     Press <span class="key">E</span> to eat <span id="food-heal">+5 HP</span>
   </div>
 </div>
+<div id="main-menu">
+  <h1>Zombie House Defense</h1>
+  <div class="sub">Survive the endless horde</div>
+  <a class="github-link" href="https://github.com/GameGuyOnYT/ZombieHouseDefense" target="_blank">View on GitHub</a>
+</div>
 <div id="game-over">
   <h1>GAME OVER</h1>
   <div class="stat">Zombies Killed: <span id="final-kills">0</span></div>
-  <div class="stat">Rooms Unlocked: <span id="final-rooms">1</span></div>
-  <div class="stat">Coins Collected: <span id="final-coins">0</span></div>
-  <div class="restart">Click to Restart</div>
+  <div class="stat">Coins Earned: <span id="final-coins">0</span></div>
+  <div class="stat">Rooms Explored: <span id="final-rooms">0</span></div>
+  <div class="restart">Click or press R to restart</div>
 </div>
 <script>
 // ==================== SETUP ====================
@@ -384,6 +394,7 @@ function showBanner(lines, duration) {
 }
 
 // ==================== GAME STATE ====================
+let menuActive = true;
 let gameOver, gameTime, kills, totalCoins;
 let spawnTimer, spawnInterval, difficultyTimer, leftSpawnTimer;
 let player, camera;
@@ -400,6 +411,7 @@ let debugSpeed = false;
 let debugGod = false;
 document.addEventListener('keydown', e => {
   KEYS[e.key] = true;
+  if (menuActive) { startGame(); return; }
   if ((e.key === 'e' || e.key === 'E') && !gameOver) { if (!tryPurchaseUpgrade()) tryEatFood(); }
   if (e.key === ' ' && !gameOver) { e.preventDefault(); if (!tryPurchaseUpgrade()) tryEatFood(); }
   if (e.key === 'r' || e.key === 'R') restartGame();
@@ -416,6 +428,7 @@ document.addEventListener('keydown', e => {
 });
 document.addEventListener('keyup', e => { KEYS[e.key] = false; });
 
+document.getElementById('main-menu').addEventListener('click', startGame);
 canvas.addEventListener('mousedown', e => { mouseDown = true; });
 canvas.addEventListener('mouseup', e => { mouseDown = false; });
 canvas.addEventListener('mouseleave', e => { mouseDown = false; });
@@ -702,7 +715,7 @@ function findNearestLockedDoor() {
 
 // ==================== UPDATE ====================
 function update(dt) {
-  if (gameOver) return;
+  if (gameOver || menuActive) return;
   gameTime += dt;
 
   // Difficulty
@@ -1044,6 +1057,7 @@ function update(dt) {
 
 // ==================== RENDER ====================
 function render() {
+  if (!rooms) return;
   ctx.clearRect(0, 0, W, H);
   ctx.save();
   ctx.translate(-camera.x, -camera.y);
@@ -1451,7 +1465,14 @@ function showGameOver() {
 
 document.getElementById('game-over').addEventListener('click', restartGame);
 
+function startGame() {
+  document.getElementById('main-menu').style.display = 'none';
+  menuActive = false;
+  initGame();
+}
+
 function restartGame() {
+  menuActive = false;
   initGame();
 }
 
@@ -1467,7 +1488,7 @@ function loop(time) {
 }
 
 // ==================== START ====================
-initGame();
+// Wait for menu dismiss before starting
 requestAnimationFrame((time) => {
   lastTime = time;
   loop(time);
