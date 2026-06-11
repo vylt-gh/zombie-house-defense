@@ -179,9 +179,9 @@ let settings = {
   interactMode: 'interact',
   aimMode: 'joystick',
   joystickStyle: 'stationary',
-  casual: false,
+  casual: 'off',
   joystickPos: 'low',
-  autofire: false,
+  autofire: 'off',
 };
 
 const ZOMBIE_TYPES = [
@@ -557,14 +557,52 @@ function setupToggle(id, settingKey) {
       document.querySelectorAll(`#${id} .toggle-opt`).forEach(o => o.classList.remove('active'));
       el.classList.add('active');
       settings[settingKey] = el.dataset.value;
+      saveSettings();
     });
     el.addEventListener('touchend', e => {
       e.preventDefault();
       document.querySelectorAll(`#${id} .toggle-opt`).forEach(o => o.classList.remove('active'));
       el.classList.add('active');
       settings[settingKey] = el.dataset.value;
+      saveSettings();
     });
   });
+}
+
+function saveSettings() {
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + 1);
+  document.cookie = 'zhd_settings=' + encodeURIComponent(JSON.stringify(settings)) + ';expires=' + d.toUTCString() + ';path=/';
+}
+
+function loadSettings() {
+  const m = document.cookie.match(/(?:^| )zhd_settings=([^;]*)/);
+  if (!m) return;
+  try {
+    const saved = JSON.parse(decodeURIComponent(m[1]));
+    Object.assign(settings, saved);
+    const toggleMap = {
+      doorUnlock: 'toggle-door',
+      interactMode: 'toggle-interact',
+      aimMode: 'toggle-aim',
+      joystickStyle: 'toggle-js',
+      joystickPos: 'toggle-pos',
+      casual: 'toggle-casual',
+      autofire: 'toggle-autofire',
+    };
+    for (const [key, id] of Object.entries(toggleMap)) {
+      const el = document.getElementById(id);
+      if (!el) continue;
+      const val = settings[key];
+      el.querySelectorAll('.toggle-opt').forEach(o => {
+        if (o.dataset.value === String(val)) {
+          o.classList.add('active');
+        } else {
+          o.classList.remove('active');
+        }
+      });
+    }
+  } catch (_) {}
 }
 setupToggle('toggle-door', 'doorUnlock');
 setupToggle('toggle-interact', 'interactMode');
@@ -573,6 +611,7 @@ setupToggle('toggle-js', 'joystickStyle');
 setupToggle('toggle-casual', 'casual');
 setupToggle('toggle-autofire', 'autofire');
 setupToggle('toggle-pos', 'joystickPos');
+loadSettings();
 if (!(navigator.maxTouchPoints > 0)) {
   document.getElementById('aim-setting').style.display = 'none';
   document.getElementById('joystick-style-setting').style.display = 'none';
