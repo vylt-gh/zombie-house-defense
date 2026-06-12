@@ -312,7 +312,7 @@ const ROOM_EFFECTS = {
   'Dungeon':          { desc: 'More zombies spawn here' },
   'Armory':           { desc: 'Gun upgraded: dual shot' },
   'Forge':            { desc: 'Sword unlocked: auto-slash nearby zombies' },
-  'Shooting Range':   { desc: 'Fire rate increased' },
+  'Shooting Range':   { desc: 'Fire rate upgrade on pedestal' },
   'Workshop':         { desc: 'Bullets do +1 damage' },
   'Enchanting Table': { desc: 'Piercing upgrade on pedestal' },
   'Sanctuary':        { desc: 'Slow HP regen while inside' },
@@ -349,6 +349,7 @@ function generateRooms(startIndex, count, startPos) {
               : name === 'Workshop' ? { type: 'Workshop', cost: 100, purchased: false, px: 0, py: 0 }
               : name === 'Enchanting Table' ? { type: 'Enchanting Table', cost: 50, purchased: false, px: 0, py: 0 }
               : name === 'Gate Room' ? { type: 'Gate Room', cost: 50, purchased: false, px: 0, py: 0 }
+              : name === 'Shooting Range' ? { type: 'Shooting Range', cost: 50, purchased: false, px: 0, py: 0 }
               : null,
     });
     const r = newRooms[newRooms.length - 1];
@@ -945,8 +946,7 @@ function applyRoomEffect(room) {
       }
       break;
     case 'Shooting Range':
-      player.fireRateMult *= 0.7;
-      showBanner(['SHOOTING RANGE', 'Fire rate increased!'], 2.5);
+      showBanner(['SHOOTING RANGE', 'Fire rate upgrade on pedestal - ' + room.upgrade.cost + ' coins'], 3);
       break;
     case 'Workshop':
       showBanner(['WORKSHOP', 'Damage upgrade on pedestal - ' + room.upgrade.cost + ' coins'], 3);
@@ -1024,6 +1024,10 @@ function tryPurchaseUpgrade() {
     player.knockback = true;
     spawnParticles(upg.px, upg.py, 30, '#66bb6a', 150, 1);
     showBanner(['GATE ROOM', 'Bullets knock zombies back!'], 2.5);
+  } else if (upg.type === 'Shooting Range') {
+    player.fireRateMult *= 0.7;
+    spawnParticles(upg.px, upg.py, 30, '#ffeb3b', 150, 1);
+    showBanner(['SHOOTING RANGE', 'Fire rate increased!'], 2.5);
   }
   playSound('unlock');
   updateHUD();
@@ -1690,7 +1694,7 @@ function render() {
     ctx.fill();
     // Glow
     const glow = ctx.createRadialGradient(u.px, u.py + bob, 2, u.px, u.py + bob, 22);
-    const glowColor = u.type === 'Armory' ? 'rgba(79,195,247,0.4)' : u.type === 'Forge' ? 'rgba(232,168,216,0.4)' : u.type === 'Workshop' ? 'rgba(255,152,0,0.4)' : u.type === 'Enchanting Table' ? 'rgba(206,147,216,0.4)' : 'rgba(102,187,106,0.4)';
+    const glowColor = u.type === 'Armory' ? 'rgba(79,195,247,0.4)' : u.type === 'Forge' ? 'rgba(232,168,216,0.4)' : u.type === 'Workshop' ? 'rgba(255,152,0,0.4)' : u.type === 'Enchanting Table' ? 'rgba(206,147,216,0.4)' : u.type === 'Gate Room' ? 'rgba(102,187,106,0.4)' : 'rgba(255,235,59,0.4)';
     glow.addColorStop(0, glowColor);
     glow.addColorStop(1, 'transparent');
     ctx.fillStyle = glow;
@@ -1744,6 +1748,12 @@ function render() {
       }
       ctx.fillStyle = '#66bb6a';
       ctx.beginPath(); ctx.arc(u.px, u.py + bob, 3, 0, Math.PI * 2); ctx.fill();
+    } else if (u.type === 'Shooting Range') {
+      ctx.fillStyle = '#ffeb3b';
+      for (let i = 0; i < 3; i++) {
+        const sy = u.py + bob - 4 + i * 4;
+        ctx.fillRect(u.px - 6 + i * 3, sy, 4, 2);
+      }
     }
   }
 
