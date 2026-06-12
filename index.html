@@ -319,7 +319,7 @@ const ROOM_EFFECTS = {
   'Spa':              { desc: 'Slow HP regen while inside' },
   'Library':          { desc: '20% more coins from all sources' },
   'Infirmary':        { desc: '+30 HP' },
-  'Gate Room':        { desc: 'Bullets knock zombies back' },
+  'Gate Room':        { desc: 'Knockback upgrade on pedestal' },
   'Observatory':      { desc: 'Aim assist arc +5\u00b0' },
 };
 
@@ -348,6 +348,7 @@ function generateRooms(startIndex, count, startPos) {
               : name === 'Forge' ? { type: 'Forge', cost: 50, purchased: false, px: 0, py: 0 }
               : name === 'Workshop' ? { type: 'Workshop', cost: 100, purchased: false, px: 0, py: 0 }
               : name === 'Enchanting Table' ? { type: 'Enchanting Table', cost: 50, purchased: false, px: 0, py: 0 }
+              : name === 'Gate Room' ? { type: 'Gate Room', cost: 50, purchased: false, px: 0, py: 0 }
               : null,
     });
     const r = newRooms[newRooms.length - 1];
@@ -514,7 +515,7 @@ let gameOver, gameTime, kills, totalCoins;
 let spawnTimer, spawnInterval, difficultyTimer, leftSpawnTimer;
 let player, camera;
 let zombies, bullets, coinItems, particles;
-let bossActive, bossRoom, kingZombieIdx, laserTimer, chargeWarning, bossEntryTimer;
+let bossActive, bossRoom, kingZombieIdx, laserTimer, chargeWarning, bossEntryTimer, bossDoorLockTimer;
 let mouseDown, mouseX, mouseY;
 let touch = {leftId:-1,rightId:-1,ax:0,ay:0,active:false,moveX:0,moveY:0,rx:0,ry:0,rax:0,ray:0,ractive:false,rmoveX:0,rmoveY:0,interactId:-1};
 let unlockDoorInfo;
@@ -774,6 +775,7 @@ function initGame() {
   laserTimer = 0;
   chargeWarning = null;
   bossEntryTimer = 0;
+  bossDoorLockTimer = 0;
   // Start-area foliage
   startFoliage = [];
   if (!isVertical) {
@@ -955,8 +957,9 @@ function applyRoomEffect(room) {
       }
       break;
     case 'Gate Room':
-      player.knockback = true;
-      showBanner(['GATE ROOM', 'Bullets knock zombies back!'], 2.5);
+      if (!player.knockback) {
+        showBanner(['GATE ROOM', 'Knockback upgrade on pedestal - ' + room.upgrade.cost + ' coins'], 3);
+      }
       break;
     case 'Sanctuary':
     case 'Spa':
@@ -1017,6 +1020,10 @@ function tryPurchaseUpgrade() {
     player.bulletPierce = true;
     spawnParticles(upg.px, upg.py, 30, '#ce93d8', 150, 1);
     showBanner(['ENCHANTING TABLE', 'Bullets pierce through zombies!'], 2.5);
+  } else if (upg.type === 'Gate Room') {
+    player.knockback = true;
+    spawnParticles(upg.px, upg.py, 30, '#66bb6a', 150, 1);
+    showBanner(['GATE ROOM', 'Bullets knock zombies back!'], 2.5);
   }
   playSound('unlock');
   updateHUD();
@@ -1142,9 +1149,9 @@ function update(dt) {
             }
           }
           bossRoom = currentRoom;
-          bossEntryTimer = 2.5;
-          walls = generateWalls(rooms);
-          showBanner(['THRONE ROOM', 'The doors slam shut...'], 2.5);
+          bossDoorLockTimer = 1.0;
+          bossEntryTimer = 3.0;
+          showBanner(['THRONE ROOM', 'The doors are closing...'], 2.5);
         } else if (name !== 'Entrance' && ROOM_EFFECTS[name] && !['Armory','Forge','Infirmary','Treasury','Shooting Range','Workshop','Enchanting Table','Gate Room','Library','Observatory'].includes(name)) {
           showBanner([name.toUpperCase(), ROOM_EFFECTS[name].desc], 2.5);
         }
@@ -1257,8 +1264,12 @@ function update(dt) {
         spawnParticles(b.x, b.y, 5, '#fff', 50, 0.15);
         if (player.knockback) {
           const kb = Math.atan2(z.y - b.y, z.x - b.x);
-          z.x += Math.cos(kb) * 40;
-          z.y += Math.sin(kb) * 40;
+          const kbx = Math.cos(kb) * 40;
+          const kby = Math.sin(kb) * 40;
+          z.x += kbx;
+          if (collidesAny(z.x, z.y, z.r, walls)) z.x -= kbx;
+          z.y += kby;
+          if (collidesAny(z.x, z.y, z.r, walls)) z.y -= kby;
         }
         if (z.hp <= 0) killZombie(z, j);
         if (b.pierce) {
@@ -1335,6 +1346,15 @@ function update(dt) {
         gameOver = true;
         showGameOver();
       }
+    }
+  }
+
+  // Boss door lock delay
+  if (bossDoorLockTimer > 0) {
+    bossDoorLockTimer -= dt;
+    if (bossDoorLockTimer <= 0) {
+      walls = generateWalls(rooms);
+      showBanner(['THRONE ROOM', 'The doors slam shut!'], 2);
     }
   }
 
@@ -1670,7 +1690,7 @@ function render() {
     ctx.fill();
     // Glow
     const glow = ctx.createRadialGradient(u.px, u.py + bob, 2, u.px, u.py + bob, 22);
-    const glowColor = u.type === 'Armory' ? 'rgba(79,195,247,0.4)' : u.type === 'Forge' ? 'rgba(232,168,216,0.4)' : u.type === 'Workshop' ? 'rgba(255,152,0,0.4)' : 'rgba(206,147,216,0.4)';
+    const glowColor = u.type === 'Armory' ? 'rgba(79,195,247,0.4)' : u.type === 'Forge' ? 'rgba(232,168,216,0.4)' : u.type === 'Workshop' ? 'rgba(255,152,0,0.4)' : u.type === 'Enchanting Table' ? 'rgba(206,147,216,0.4)' : 'rgba(102,187,106,0.4)';
     glow.addColorStop(0, glowColor);
     glow.addColorStop(1, 'transparent');
     ctx.fillStyle = glow;
@@ -1712,6 +1732,18 @@ function render() {
       ctx.beginPath();
       ctx.arc(u.px, u.py + bob, 3, 0, Math.PI * 2);
       ctx.fill();
+    } else if (u.type === 'Gate Room') {
+      ctx.strokeStyle = '#66bb6a';
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 4; i++) {
+        const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
+        ctx.beginPath();
+        ctx.moveTo(u.px + Math.cos(a) * 3, u.py + bob + Math.sin(a) * 3);
+        ctx.lineTo(u.px + Math.cos(a) * 8, u.py + bob + Math.sin(a) * 8);
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#66bb6a';
+      ctx.beginPath(); ctx.arc(u.px, u.py + bob, 3, 0, Math.PI * 2); ctx.fill();
     }
   }
 
