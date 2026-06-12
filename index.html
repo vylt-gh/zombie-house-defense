@@ -530,7 +530,7 @@ document.addEventListener('keydown', e => {
   if (e.key === '"') { debugMode = !debugMode; showDebugOverlay(); }
   if (debugMode) {
     if (e.key === '1') { debugNoclip = !debugNoclip; showDebugOverlay(); }
-    if (e.key === '2') { debugSpeed = debugSpeed === 1 ? 2 : debugSpeed === 2 ? 3 : debugSpeed === 3 ? 5 : 1; showDebugOverlay(); }
+    if (e.key === '2') { debugSpeed = debugSpeed === 1 ? 2 : debugSpeed === 2 ? 3 : debugSpeed === 3 ? 5 : debugSpeed === 5 ? 10 : 1; showDebugOverlay(); }
     if (e.key === '3') { debugGod = !debugGod; showDebugOverlay(); }
     if (e.key === '4') { grantAllUpgrades(); showDebugOverlay(); }
     if (e.key === '5' && player) { player.coins += 10000; updateHUD(); showDebugOverlay(); }
