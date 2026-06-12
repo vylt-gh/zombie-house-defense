@@ -309,17 +309,13 @@ const ROOM_EFFECTS = {
   'Dining Hall':      { desc: 'Food items restore HP' },
   'Pantry':           { desc: 'Food items restore HP' },
   'Treasury':         { desc: '+1 coin per kill' },
-  'Dungeon':          { desc: 'More zombies spawn here' },
   'Armory':           { desc: 'Gun upgraded: dual shot' },
   'Forge':            { desc: 'Sword unlocked: auto-slash nearby zombies' },
   'Shooting Range':   { desc: 'Fire rate upgrade on pedestal' },
   'Workshop':         { desc: 'Bullets do +1 damage' },
   'Enchanting Table': { desc: 'Piercing upgrade on pedestal' },
   'Sanctuary':        { desc: 'Slow HP regen while inside' },
-  'Spa':              { desc: 'Slow HP regen while inside' },
-  'Library':          { desc: '20% more coins from all sources' },
   'Infirmary':        { desc: '+30 HP' },
-  'Gate Room':        { desc: 'Knockback upgrade on pedestal' },
   'Observatory':      { desc: 'Aim assist arc +5\u00b0' },
 };
 
@@ -348,7 +344,6 @@ function generateRooms(startIndex, count, startPos) {
               : name === 'Forge' ? { type: 'Forge', cost: 50, purchased: false, px: 0, py: 0 }
               : name === 'Workshop' ? { type: 'Workshop', cost: 100, purchased: false, px: 0, py: 0 }
               : name === 'Enchanting Table' ? { type: 'Enchanting Table', cost: 50, purchased: false, px: 0, py: 0 }
-              : name === 'Gate Room' ? { type: 'Gate Room', cost: 50, purchased: false, px: 0, py: 0 }
               : name === 'Shooting Range' ? { type: 'Shooting Range', cost: 50, purchased: false, px: 0, py: 0 }
               : null,
     });
@@ -476,9 +471,7 @@ function grantAllUpgrades() {
   player.hasSword = true;
   player.bonusDamage = 1;
   player.bulletPierce = true;
-  player.knockback = true;
   player.treasuryChance = 1;
-  player.libraryBonus = 1.2;
   player.fireRateMult = Math.min(player.fireRateMult, 0.55);
   player.aimArcBonus = 5;
   for (const r of rooms) {
@@ -540,7 +533,7 @@ document.addEventListener('keydown', e => {
     if (e.key === '2') { debugSpeed = !debugSpeed; showDebugOverlay(); }
     if (e.key === '3') { debugGod = !debugGod; showDebugOverlay(); }
     if (e.key === '4') { grantAllUpgrades(); showDebugOverlay(); }
-    if (e.key === '5' && player) { player.coins += 100; updateHUD(); showDebugOverlay(); }
+    if (e.key === '5' && player) { player.coins += 10000; updateHUD(); showDebugOverlay(); }
     if (e.key === '6' && player) { player.health = player.maxHealth; updateHUD(); showDebugOverlay(); }
     if (e.key === '7') { for (let i = 0; i < 5; i++) spawnZombie(); showDebugOverlay(); }
   }
@@ -751,7 +744,7 @@ function initGame() {
     fireCD: 0, gunAngle: 0, damageCD: 0, hurtFlash: 0,
     gunUpgraded: false, hasSword: false, swordCD: 0, swordSwing: 0,
     fireRateMult: settings.casual === 'on' ? 0.25 / 0.35 : 1, bonusDamage: 0, bulletPierce: false, knockback: false,
-    treasuryChance: 0, libraryBonus: 1, dungeonActive: false,
+    treasuryChance: 0, libraryBonus: 1,
     regenTimer: 0,     aimArcBonus: 0,
     lastRoomIdx: -1,
   };
@@ -956,18 +949,8 @@ function applyRoomEffect(room) {
         showBanner(['ENCHANTING TABLE', 'Piercing upgrade on pedestal - ' + room.upgrade.cost + ' coins'], 3);
       }
       break;
-    case 'Gate Room':
-      if (!player.knockback) {
-        showBanner(['GATE ROOM', 'Knockback upgrade on pedestal - ' + room.upgrade.cost + ' coins'], 3);
-      }
-      break;
     case 'Sanctuary':
-    case 'Spa':
-      showBanner([name.toUpperCase(), 'Slow HP regen while inside'], 2.5);
-      break;
-    case 'Library':
-      player.libraryBonus = 1.2;
-      showBanner(['LIBRARY', '20% more coins from all sources!'], 2.5);
+      showBanner(['SANCTUARY', 'Slow HP regen while inside'], 2.5);
       break;
     case 'Observatory':
       player.aimArcBonus = Math.PI / 36;
@@ -1020,10 +1003,6 @@ function tryPurchaseUpgrade() {
     player.bulletPierce = true;
     spawnParticles(upg.px, upg.py, 30, '#ce93d8', 150, 1);
     showBanner(['ENCHANTING TABLE', 'Bullets pierce through zombies!'], 2.5);
-  } else if (upg.type === 'Gate Room') {
-    player.knockback = true;
-    spawnParticles(upg.px, upg.py, 30, '#66bb6a', 150, 1);
-    showBanner(['GATE ROOM', 'Bullets knock zombies back!'], 2.5);
   } else if (upg.type === 'Shooting Range') {
     player.fireRateMult *= 0.7;
     spawnParticles(upg.px, upg.py, 30, '#ffeb3b', 150, 1);
@@ -1095,9 +1074,6 @@ function update(dt) {
     leftSpawnTimer = Math.max(1.0, spawnInterval * 1.5);
   }
 
-  // Dungeon: extra spawns
-  if (player.dungeonActive && Math.random() < 0.05) spawnZombie();
-
   // Player movement
   let mx = 0, my = 0;
   if (KEYS['w'] || KEYS['W'] || KEYS['ArrowUp']) my = -1;
@@ -1133,17 +1109,13 @@ function update(dt) {
     }
   }
   if (currentRoom) {
-    // Update dungeon state
-    player.dungeonActive = currentRoom.name === 'Dungeon';
     // First entry
     if (currentRoom.index !== player.lastRoomIdx) {
       player.lastRoomIdx = currentRoom.index;
       if (!currentRoom.entered) {
         currentRoom.entered = true;
         const name = currentRoom.name;
-        if (name === 'Dungeon') {
-          showBanner(['DUNGEON', 'More zombies spawn here!'], 2.5);
-        } else if (name === 'Throne Room') {
+        if (name === 'Throne Room') {
           // Kill zombies inside the Throne Room
           for (let i = zombies.length - 1; i >= 0; i--) {
             const z = zombies[i];
@@ -1156,13 +1128,13 @@ function update(dt) {
           bossDoorLockTimer = 1.0;
           bossEntryTimer = 3.0;
           showBanner(['THRONE ROOM', 'The doors are closing...'], 2.5);
-        } else if (name !== 'Entrance' && ROOM_EFFECTS[name] && !['Armory','Forge','Infirmary','Treasury','Shooting Range','Workshop','Enchanting Table','Gate Room','Library','Observatory'].includes(name)) {
+        } else if (name !== 'Entrance' && ROOM_EFFECTS[name] && !['Armory','Forge','Infirmary','Treasury','Shooting Range','Workshop','Enchanting Table','Observatory'].includes(name)) {
           showBanner([name.toUpperCase(), ROOM_EFFECTS[name].desc], 2.5);
         }
       }
     }
-    // Sanctuary/Spa regen
-    if (currentRoom.name === 'Sanctuary' || currentRoom.name === 'Spa') {
+    // Sanctuary regen
+    if (currentRoom.name === 'Sanctuary') {
       player.regenTimer += dt;
       if (player.regenTimer >= 1) {
         player.regenTimer = 0;
@@ -1694,7 +1666,7 @@ function render() {
     ctx.fill();
     // Glow
     const glow = ctx.createRadialGradient(u.px, u.py + bob, 2, u.px, u.py + bob, 22);
-    const glowColor = u.type === 'Armory' ? 'rgba(79,195,247,0.4)' : u.type === 'Forge' ? 'rgba(232,168,216,0.4)' : u.type === 'Workshop' ? 'rgba(255,152,0,0.4)' : u.type === 'Enchanting Table' ? 'rgba(206,147,216,0.4)' : u.type === 'Gate Room' ? 'rgba(102,187,106,0.4)' : 'rgba(255,235,59,0.4)';
+    const glowColor = u.type === 'Armory' ? 'rgba(79,195,247,0.4)' : u.type === 'Forge' ? 'rgba(232,168,216,0.4)' : u.type === 'Workshop' ? 'rgba(255,152,0,0.4)' : u.type === 'Enchanting Table' ? 'rgba(206,147,216,0.4)' : 'rgba(255,235,59,0.4)';
     glow.addColorStop(0, glowColor);
     glow.addColorStop(1, 'transparent');
     ctx.fillStyle = glow;
@@ -1736,18 +1708,6 @@ function render() {
       ctx.beginPath();
       ctx.arc(u.px, u.py + bob, 3, 0, Math.PI * 2);
       ctx.fill();
-    } else if (u.type === 'Gate Room') {
-      ctx.strokeStyle = '#66bb6a';
-      ctx.lineWidth = 2;
-      for (let i = 0; i < 4; i++) {
-        const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-        ctx.beginPath();
-        ctx.moveTo(u.px + Math.cos(a) * 3, u.py + bob + Math.sin(a) * 3);
-        ctx.lineTo(u.px + Math.cos(a) * 8, u.py + bob + Math.sin(a) * 8);
-        ctx.stroke();
-      }
-      ctx.fillStyle = '#66bb6a';
-      ctx.beginPath(); ctx.arc(u.px, u.py + bob, 3, 0, Math.PI * 2); ctx.fill();
     } else if (u.type === 'Shooting Range') {
       ctx.fillStyle = '#ffeb3b';
       for (let i = 0; i < 3; i++) {
