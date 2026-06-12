@@ -1142,8 +1142,8 @@ function update(dt) {
             }
           }
           bossRoom = currentRoom;
-          walls = generateWalls(rooms);
           bossEntryTimer = 2.5;
+          walls = generateWalls(rooms);
           showBanner(['THRONE ROOM', 'The doors slam shut...'], 2.5);
         } else if (name !== 'Entrance' && ROOM_EFFECTS[name] && !['Armory','Forge','Infirmary','Treasury','Shooting Range','Workshop','Enchanting Table','Gate Room','Library','Observatory'].includes(name)) {
           showBanner([name.toUpperCase(), ROOM_EFFECTS[name].desc], 2.5);
@@ -1286,8 +1286,7 @@ function update(dt) {
     if (z.isKing) {
       if (z.charging) {
         z.chargeDur -= dt;
-        z.x += z.chargeVx * dt;
-        z.y += z.chargeVy * dt;
+        moveWithCollision(z, z.chargeVx * dt, z.chargeVy * dt, walls);
         if (z.chargeDur <= 0) {
           z.charging = false;
           z.chargeTimer = rand(2, 4);
@@ -1297,7 +1296,7 @@ function update(dt) {
         if (z.windupTimer <= 0) {
           const angle = Math.atan2(player.y - z.y, player.x - z.x);
           z.charging = true;
-          z.chargeDur = 1.2;
+          z.chargeDur = 0.7;
           z.chargeVx = Math.cos(angle) * ZS * 12;
           z.chargeVy = Math.sin(angle) * ZS * 12;
         }
@@ -1305,8 +1304,9 @@ function update(dt) {
         z.chargeTimer -= dt;
         if (z.chargeTimer <= 0) {
           const angle = Math.atan2(player.y - z.y, player.x - z.x);
-          z.windupTimer = 2.5;
-          chargeWarning = { x: z.x, y: z.y, angle: angle, timer: 2.5 };
+          const windup = settings.casual === 'on' ? 2.0 : 1.5;
+          z.windupTimer = windup;
+          chargeWarning = { x: z.x, y: z.y, angle: angle, timer: windup };
         } else {
           const angle = Math.atan2(player.y - z.y, player.x - z.x);
           const dx = Math.cos(angle) * z.speed * dt;
