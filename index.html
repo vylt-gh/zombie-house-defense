@@ -533,9 +533,10 @@ document.addEventListener('keydown', e => {
     if (e.key === '2') { debugSpeed = debugSpeed === 1 ? 2 : debugSpeed === 2 ? 3 : debugSpeed === 3 ? 5 : debugSpeed === 5 ? 10 : 1; showDebugOverlay(); }
     if (e.key === '3') { debugGod = !debugGod; showDebugOverlay(); }
     if (e.key === '4') { grantAllUpgrades(); showDebugOverlay(); }
-    if (e.key === '5' && player) { player.coins += 10000; updateHUD(); showDebugOverlay(); }
+    if (e.key === '5' && player) { player.coins += 1000000; updateHUD(); showDebugOverlay(); }
     if (e.key === '6' && player) { player.health = player.maxHealth; updateHUD(); showDebugOverlay(); }
     if (e.key === '7') { for (let i = 0; i < 5; i++) spawnZombie(); showDebugOverlay(); }
+    if (e.key === '8' && player) { zombies.push({ x: player.x + rand(80, 150), y: player.y + rand(80, 150), r: 22, hp: 1000, maxHp: 1000, speed: ZS * 0.6, hitFlash: 0, color: '#ff4444', dark: '#880000', eye: '#ffff00' }); showDebugOverlay(); }
   }
 });
 document.addEventListener('keyup', e => { KEYS[e.key] = false; });
