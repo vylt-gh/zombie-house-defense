@@ -485,7 +485,7 @@ function showDebugOverlay() {
   if (!debugMode) { el.style.display = 'none'; return; }
   const lines = [];
   if (debugNoclip) lines.push('NOCLIP');
-  if (debugSpeed) lines.push('2x SPEED');
+  if (debugSpeed > 1) lines.push(debugSpeed + 'x SPEED');
   if (debugGod) lines.push('GOD MODE');
   el.textContent = 'DEBUG [' + lines.join('] [') + ']';
   el.style.display = 'block';
@@ -519,7 +519,7 @@ let foodInfo;
 const KEYS = {};
 let debugMode = false;
 let debugNoclip = false;
-let debugSpeed = false;
+let debugSpeed = 1;
 let debugGod = false;
 document.addEventListener('keydown', e => {
   KEYS[e.key] = true;
@@ -530,7 +530,7 @@ document.addEventListener('keydown', e => {
   if (e.key === '"') { debugMode = !debugMode; showDebugOverlay(); }
   if (debugMode) {
     if (e.key === '1') { debugNoclip = !debugNoclip; showDebugOverlay(); }
-    if (e.key === '2') { debugSpeed = !debugSpeed; showDebugOverlay(); }
+    if (e.key === '2') { debugSpeed = debugSpeed === 1 ? 2 : debugSpeed === 2 ? 3 : debugSpeed === 3 ? 5 : 1; showDebugOverlay(); }
     if (e.key === '3') { debugGod = !debugGod; showDebugOverlay(); }
     if (e.key === '4') { grantAllUpgrades(); showDebugOverlay(); }
     if (e.key === '5' && player) { player.coins += 10000; updateHUD(); showDebugOverlay(); }
@@ -1091,7 +1091,7 @@ function update(dt) {
   }
   const mag = Math.hypot(mx, my);
   if (mag > 1) { mx /= mag; my /= mag; }
-  const ps = debugSpeed ? PS * 2 : PS;
+  const ps = PS * debugSpeed;
   if (debugNoclip) {
     player.x += mx * ps * dt;
     player.y += my * ps * dt;
