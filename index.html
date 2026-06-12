@@ -314,7 +314,7 @@ const ROOM_EFFECTS = {
   'Forge':            { desc: 'Sword unlocked: auto-slash nearby zombies' },
   'Shooting Range':   { desc: 'Fire rate increased' },
   'Workshop':         { desc: 'Bullets do +1 damage' },
-  'Enchanting Table': { desc: 'Bullets pierce through zombies' },
+  'Enchanting Table': { desc: 'Piercing upgrade on pedestal' },
   'Sanctuary':        { desc: 'Slow HP regen while inside' },
   'Spa':              { desc: 'Slow HP regen while inside' },
   'Library':          { desc: '20% more coins from all sources' },
@@ -347,6 +347,7 @@ function generateRooms(startIndex, count, startPos) {
       upgrade: name === 'Armory' ? { type: 'Armory', cost: 100, purchased: false, px: 0, py: 0 }
               : name === 'Forge' ? { type: 'Forge', cost: 50, purchased: false, px: 0, py: 0 }
               : name === 'Workshop' ? { type: 'Workshop', cost: 100, purchased: false, px: 0, py: 0 }
+              : name === 'Enchanting Table' ? { type: 'Enchanting Table', cost: 50, purchased: false, px: 0, py: 0 }
               : null,
     });
     const r = newRooms[newRooms.length - 1];
@@ -946,8 +947,9 @@ function applyRoomEffect(room) {
       showBanner(['WORKSHOP', 'Damage upgrade on pedestal - ' + room.upgrade.cost + ' coins'], 3);
       break;
     case 'Enchanting Table':
-      player.bulletPierce = true;
-      showBanner(['ENCHANTING TABLE', 'Bullets pierce through zombies!'], 2.5);
+      if (!player.bulletPierce) {
+        showBanner(['ENCHANTING TABLE', 'Piercing upgrade on pedestal - ' + room.upgrade.cost + ' coins'], 3);
+      }
       break;
     case 'Gate Room':
       player.knockback = true;
@@ -1008,6 +1010,10 @@ function tryPurchaseUpgrade() {
     player.bonusDamage += 1;
     spawnParticles(upg.px, upg.py, 30, '#ff9800', 150, 1);
     showBanner(['WORKSHOP', 'Bullets do +1 damage!'], 2.5);
+  } else if (upg.type === 'Enchanting Table') {
+    player.bulletPierce = true;
+    spawnParticles(upg.px, upg.py, 30, '#ce93d8', 150, 1);
+    showBanner(['ENCHANTING TABLE', 'Bullets pierce through zombies!'], 2.5);
   }
   playSound('unlock');
   updateHUD();
@@ -1643,7 +1649,7 @@ function render() {
     ctx.fill();
     // Glow
     const glow = ctx.createRadialGradient(u.px, u.py + bob, 2, u.px, u.py + bob, 22);
-    const glowColor = u.type === 'Armory' ? 'rgba(79,195,247,0.4)' : u.type === 'Forge' ? 'rgba(232,168,216,0.4)' : 'rgba(255,152,0,0.4)';
+    const glowColor = u.type === 'Armory' ? 'rgba(79,195,247,0.4)' : u.type === 'Forge' ? 'rgba(232,168,216,0.4)' : u.type === 'Workshop' ? 'rgba(255,152,0,0.4)' : 'rgba(206,147,216,0.4)';
     glow.addColorStop(0, glowColor);
     glow.addColorStop(1, 'transparent');
     ctx.fillStyle = glow;
@@ -1675,6 +1681,16 @@ function render() {
       }
       ctx.fillStyle = '#ff9800';
       ctx.beginPath(); ctx.arc(u.px, u.py + bob, 3, 0, Math.PI * 2); ctx.fill();
+    } else if (u.type === 'Enchanting Table') {
+      ctx.strokeStyle = '#ce93d8';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(u.px, u.py + bob, 7, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#ce93d8';
+      ctx.beginPath();
+      ctx.arc(u.px, u.py + bob, 3, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 
