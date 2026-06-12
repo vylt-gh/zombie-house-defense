@@ -1,5 +1,7 @@
 # Zombie House Defense
 
+CREDIT TO @bilisimyonelt-del ON GITHUB FOR THE IDEA
+
 Top-down zombie survival game with procedurally generated rooms, permanent upgrades, and a roguelike loop.
 
 Play: https://gameguyonyt.github.io/ZombieHouseDefense
