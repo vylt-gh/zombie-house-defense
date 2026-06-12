@@ -443,7 +443,8 @@ function generateWalls(rooms) {
       const leftX = Math.min(a.x, b.x);
       const rightX = Math.max(a.x + a.w, b.x + b.w);
       const midX = (a.x + a.w / 2 + b.x + b.w / 2) / 2;
-      if (b.unlocked && !(bossActive && bossRoom && (a.index === bossRoom.index || b.index === bossRoom.index))) {
+      const bossLock = (bossActive || bossEntryTimer > 0) && bossRoom && (a.index === bossRoom.index || b.index === bossRoom.index);
+      if (b.unlocked && !bossLock) {
         walls.push({ x1: leftX, y1: wy, x2: midX - DOOR_HD, y2: wy });
         walls.push({ x1: midX + DOOR_HD, y1: wy, x2: rightX, y2: wy });
       } else {
@@ -454,7 +455,8 @@ function generateWalls(rooms) {
       const topY = Math.min(a.y, b.y);
       const botY = Math.max(a.y + a.h, b.y + b.h);
       const midY = (a.y + a.h / 2 + b.y + b.h / 2) / 2;
-      if (b.unlocked && !(bossActive && bossRoom && (a.index === bossRoom.index || b.index === bossRoom.index))) {
+      const bossLock2 = (bossActive || bossEntryTimer > 0) && bossRoom && (a.index === bossRoom.index || b.index === bossRoom.index);
+      if (b.unlocked && !bossLock2) {
         walls.push({ x1: wx, y1: topY, x2: wx, y2: midY - DOOR_HD });
         walls.push({ x1: wx, y1: midY + DOOR_HD, x2: wx, y2: botY });
       } else {
@@ -512,7 +514,7 @@ let gameOver, gameTime, kills, totalCoins;
 let spawnTimer, spawnInterval, difficultyTimer, leftSpawnTimer;
 let player, camera;
 let zombies, bullets, coinItems, particles;
-let bossActive, bossRoom, kingZombieIdx, laserTimer, chargeWarning;
+let bossActive, bossRoom, kingZombieIdx, laserTimer, chargeWarning, bossEntryTimer;
 let mouseDown, mouseX, mouseY;
 let touch = {leftId:-1,rightId:-1,ax:0,ay:0,active:false,moveX:0,moveY:0,rx:0,ry:0,rax:0,ray:0,ractive:false,rmoveX:0,rmoveY:0,interactId:-1};
 let unlockDoorInfo;
@@ -771,6 +773,7 @@ function initGame() {
   kingZombieIdx = -1;
   laserTimer = 0;
   chargeWarning = null;
+  bossEntryTimer = 0;
   // Start-area foliage
   startFoliage = [];
   if (!isVertical) {
@@ -835,7 +838,7 @@ function spawnZombie() {
   const unlocked = rooms.filter(r => r.unlocked);
   if (unlocked.length === 0) return;
   const room = unlocked[unlocked.length - 1];
-  if (bossActive && bossRoom && room.index === bossRoom.index) return;
+  if ((bossActive || bossEntryTimer > 0) && bossRoom && room.index === bossRoom.index) return;
   const vt = pickZombieType();
   let x, y;
   if (isVertical) {
@@ -1130,9 +1133,6 @@ function update(dt) {
         if (name === 'Dungeon') {
           showBanner(['DUNGEON', 'More zombies spawn here!'], 2.5);
         } else if (name === 'Throne Room') {
-          showBanner(['THRONE ROOM', 'The doors lock behind you...'], 2.5);
-          bossActive = true;
-          bossRoom = currentRoom;
           // Kill zombies inside the Throne Room
           for (let i = zombies.length - 1; i >= 0; i--) {
             const z = zombies[i];
@@ -1141,25 +1141,10 @@ function update(dt) {
               zombies.splice(i, 1);
             }
           }
-          // Spawn king zombie away from player
-          const kx = player.x + (Math.random() > 0.5 ? 1 : -1) * rand(120, 200);
-          const ky = player.y + (Math.random() > 0.5 ? 1 : -1) * rand(120, 200);
-          const clampedX = clamp(kx, currentRoom.x + 40, currentRoom.x + currentRoom.w - 40);
-          const clampedY = clamp(ky, currentRoom.y + 40, currentRoom.y + currentRoom.h - 40);
-          const kingSpeed = 0.7 * 0.67;
-          const casualMult = settings.casual === 'on' ? 0.75 : 1;
-          zombies.push({
-            x: clampedX, y: clampedY, r: 30, hp: 100, maxHp: 100,
-            speed: ZS * kingSpeed * casualMult, hitFlash: 0,
-            color: '#8b0000', dark: '#4a0000', eye: '#ff0000',
-            isKing: true,
-            chargeTimer: rand(1.5, 3),
-            charging: false,
-            chargeDur: 0,
-            chargeVx: 0,
-            chargeVy: 0,
-          });
-          kingZombieIdx = zombies.length - 1;
+          bossRoom = currentRoom;
+          walls = generateWalls(rooms);
+          bossEntryTimer = 2.5;
+          showBanner(['THRONE ROOM', 'The doors slam shut...'], 2.5);
         } else if (name !== 'Entrance' && ROOM_EFFECTS[name] && !['Armory','Forge','Infirmary','Treasury','Shooting Range','Workshop','Enchanting Table','Gate Room','Library','Observatory'].includes(name)) {
           showBanner([name.toUpperCase(), ROOM_EFFECTS[name].desc], 2.5);
         }
@@ -1305,17 +1290,23 @@ function update(dt) {
         z.y += z.chargeVy * dt;
         if (z.chargeDur <= 0) {
           z.charging = false;
-          z.chargeTimer = rand(1.5, 3);
+          z.chargeTimer = rand(2, 4);
+        }
+      } else if (z.windupTimer > 0) {
+        z.windupTimer -= dt;
+        if (z.windupTimer <= 0) {
+          const angle = Math.atan2(player.y - z.y, player.x - z.x);
+          z.charging = true;
+          z.chargeDur = 1.2;
+          z.chargeVx = Math.cos(angle) * ZS * 12;
+          z.chargeVy = Math.sin(angle) * ZS * 12;
         }
       } else {
         z.chargeTimer -= dt;
         if (z.chargeTimer <= 0) {
           const angle = Math.atan2(player.y - z.y, player.x - z.x);
-          z.charging = true;
-          z.chargeDur = 0.5;
-          z.chargeVx = Math.cos(angle) * ZS * 3.5;
-          z.chargeVy = Math.sin(angle) * ZS * 3.5;
-          chargeWarning = { x: z.x, y: z.y, angle: angle, timer: 0.35 };
+          z.windupTimer = 2.5;
+          chargeWarning = { x: z.x, y: z.y, angle: angle, timer: 2.5 };
         } else {
           const angle = Math.atan2(player.y - z.y, player.x - z.x);
           const dx = Math.cos(angle) * z.speed * dt;
@@ -1331,7 +1322,8 @@ function update(dt) {
     }
     if (player.damageCD <= 0 && dist(player, z) < player.r + z.r) {
       if (!debugGod) {
-        const zombieDmg = 8 + gameTime * 0.015;
+        let zombieDmg = 8 + gameTime * 0.015;
+        if (z.isKing && z.charging) zombieDmg = 25;
         player.health -= zombieDmg;
       }
       player.damageCD = 0.4;
@@ -1343,6 +1335,35 @@ function update(dt) {
         gameOver = true;
         showGameOver();
       }
+    }
+  }
+
+  // Boss entry warmup
+  if (bossEntryTimer > 0) {
+    bossEntryTimer -= dt;
+    if (bossEntryTimer <= 0) {
+      bossActive = true;
+      const casualMult = settings.casual === 'on' ? 0.75 : 1;
+      const kx = player.x + (Math.random() > 0.5 ? 1 : -1) * rand(120, 200);
+      const ky = player.y + (Math.random() > 0.5 ? 1 : -1) * rand(120, 200);
+      const clampedX = clamp(kx, bossRoom.x + 40, bossRoom.x + bossRoom.w - 40);
+      const clampedY = clamp(ky, bossRoom.y + 40, bossRoom.y + bossRoom.h - 40);
+      const kingSpeed = 0.7 * 0.67;
+      zombies.push({
+        x: clampedX, y: clampedY, r: 30, hp: 200, maxHp: 200,
+        speed: ZS * kingSpeed * casualMult, hitFlash: 0,
+        color: '#8b0000', dark: '#4a0000', eye: '#ff0000',
+        isKing: true,
+        chargeTimer: rand(1.5, 3),
+        charging: false,
+        windupTimer: 0,
+        chargeDur: 0,
+        chargeVx: 0,
+        chargeVy: 0,
+      });
+      kingZombieIdx = zombies.length - 1;
+      spawnParticles(bossRoom.x + bossRoom.w / 2, bossRoom.y + bossRoom.h / 2, 60, '#8b0000', 200, 1.2);
+      showBanner(['', 'The King approaches...'], 2);
     }
   }
 
@@ -1449,7 +1470,7 @@ function update(dt) {
   // Auto-unlock door on contact
   unlockDoorInfo = findNearestLockedDoor();
   const prompt = document.getElementById('unlock-prompt');
-  if (bossActive && bossRoom) {
+  if ((bossActive || bossEntryTimer > 0) && bossRoom) {
     prompt.innerHTML = '<span style="color:#ff4444">Boss fight in progress!</span>';
     prompt.style.display = 'block';
     prompt.style.borderColor = '#ff4444';
@@ -1954,8 +1975,8 @@ function render() {
   // Charge warning
   if (chargeWarning) {
     const w = chargeWarning;
-    const alpha = w.timer / 0.35;
-    const warnLen = 250;
+    const alpha = 0.35 + 0.35 * Math.sin(w.timer * Math.PI * 3);
+    const warnLen = 500;
     const warnW = 50;
     const cx2 = w.x + Math.cos(w.angle) * warnLen;
     const cy2 = w.y + Math.sin(w.angle) * warnLen;
