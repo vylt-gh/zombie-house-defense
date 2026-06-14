@@ -1,6 +1,22 @@
 # Zombie House Defense
 
-CREDIT TO @bilisimyonelt-del ON GITHUB FOR THE IDEA
+<hr>
+
+> [!IMPORTANT]
+> so uhhhh i kinda hit the free token limit for my model with this project...
+> they said it was unlimited idk what happened.
+> i somehow found the limit to opencode zen "unlimited"
+> (it was around 1.5m tokens in 2 days btw)
+>
+> so im no longer updating this project.
+> unless i get a really good and expensive ai sub
+> then maybe.
+> but i am a child,
+> so prob not.
+
+<hr>
+
+## CREDIT TO [@bilisimyonelt-del](https://github.com/bilisimyonelt-del) FOR THE IDEA
 
 Top-down zombie survival game with procedurally generated rooms, permanent upgrades, and a roguelike loop.
 
