@@ -20,7 +20,7 @@
 
 Top-down zombie survival game with procedurally generated rooms, permanent upgrades, and a roguelike loop.
 
-Play: https://gameguyonyt.github.io/ZombieHouseDefense
+Play: https://vylt-gh.github.io/zombie-house-defense/ (or download `index.html` from the repo)
 
 ## Controls
 
